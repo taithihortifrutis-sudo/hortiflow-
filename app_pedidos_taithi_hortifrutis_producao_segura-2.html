@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Taithi Hortifrutis - Pedidos e Produção</title>
+  <style>
+    :root{
+      --green:#1f7a3a; --green2:#2fa84f; --yellow:#ffd84d; --bg:#f6f7f2; --card:#fff;
+      --text:#1f2a1f; --muted:#6b746b; --red:#c0392b; --line:#e2e6dc;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+    header{position:sticky;top:0;z-index:10;background:linear-gradient(135deg,var(--green),var(--green2));color:white;padding:14px 14px 12px;box-shadow:0 3px 12px #0002}
+    header h1{margin:0;font-size:20px}
+    header p{margin:3px 0 0;font-size:13px;opacity:.95}
+    nav{display:flex;gap:8px;overflow:auto;padding:10px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:67px;z-index:9}
+    nav button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:10px 12px;font-weight:700;white-space:nowrap}
+    nav button.active{background:var(--yellow);border-color:#e1b900}
+    main{padding:12px;max-width:980px;margin:auto}
+    .grid{display:grid;grid-template-columns:1fr;gap:12px}
+    @media(min-width:800px){.grid.two{grid-template-columns:1fr 1fr}.products{grid-template-columns:1fr 1fr}}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 2px 8px #0000000a}
+    h2{font-size:18px;margin:0 0 10px}
+    h3{font-size:15px;margin:14px 0 8px;color:var(--green)}
+    label{font-size:13px;font-weight:700;display:block;margin:8px 0 4px}
+    input,textarea,select{width:100%;padding:11px;border:1px solid #cfd6ca;border-radius:10px;font-size:15px;background:white}
+    textarea{min-height:68px;resize:vertical}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .btn{border:0;border-radius:12px;padding:12px;font-weight:800;font-size:15px;background:var(--green);color:#fff}
+    .btn.secondary{background:#eef4ec;color:var(--green);border:1px solid #cddfc8}
+    .btn.yellow{background:var(--yellow);color:#2b2b16}
+    .btn.red{background:var(--red)}
+    .btn.small{padding:8px 10px;font-size:13px}
+    .products{display:grid;gap:8px}
+    .prod{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px;background:#fff}
+    .prod b{font-size:14px}
+    .prod span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+    .qty{display:flex;gap:6px;align-items:center}
+    .qty button{width:38px;height:38px;border-radius:10px;border:0;background:var(--green);color:#fff;font-size:20px;font-weight:900}
+    .qty button.minus{background:#dfe8da;color:#24552c}
+    .qty strong{min-width:28px;text-align:center}
+    .summary{display:grid;grid-template-columns:1fr auto;gap:8px;border-top:1px dashed var(--line);padding-top:8px;margin-top:8px}
+    .pill{display:inline-block;border-radius:999px;background:#eef4ec;padding:5px 8px;font-size:12px;margin:2px;color:var(--green);font-weight:700}
+    .hidden{display:none!important}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
+    th{color:var(--green)}
+    .totalBox{background:#fff8d7;border:1px solid #edd36b;border-radius:14px;padding:12px;font-weight:800}
+    .muted{color:var(--muted);font-size:13px}
+    .dangerText{color:var(--red);font-weight:700}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Taithi Hortifrutis</h1>
+    <p>Pedidos, produção diária, saldo e histórico</p>
+  </header>
+
+  <nav>
+    <button class="active" onclick="showTab('pedido', this)">Novo pedido</button>
+    <button onclick="showTab('producao', this)">Produção</button>
+    <button onclick="showTab('historico', this)">Histórico</button>
+    <button onclick="showTab('catalogo', this)">Catálogo</button>
+  </nav>
+
+  <main>
+    <section id="pedido" class="tab">
+      <div class="grid two">
+        <div class="card">
+          <h2>Cliente</h2>
+          <label>Nome</label><input id="clienteNome" placeholder="Nome do cliente">
+          <label>Telefone</label><input id="clienteTelefone" placeholder="WhatsApp / telefone">
+          <label>Endereço</label><input id="clienteEndereco" placeholder="Rua, número, bairro">
+          <label>Observação</label><textarea id="obs" placeholder="Ex: sem cebola, entregar após 16h, troco..."></textarea>
+          <div class="row">
+            <div>
+              <label>Status</label>
+              <select id="statusPagamento">
+                <option>Pago</option>
+                <option>Fiado</option>
+                <option>Pendente</option>
+              </select>
+            </div>
+            <div>
+              <label>Forma</label>
+              <select id="formaPagamento">
+                <option>Dinheiro</option>
+                <option>Pix</option>
+                <option>Cartão</option>
+                <option>Fiado</option>
+              </select>
+            </div>
+          </div>
+          <label>Valor recebido / combinado</label><input id="valorPedido" type="number" step="0.01" placeholder="Ex: 35.00">
+        </div>
+
+        <div class="card">
+          <h2>Resumo do pedido</h2>
+          <div id="resumoItens" class="muted">Nenhum item incluído ainda.</div>
+          <div class="totalBox" style="margin-top:10px">Total: R$ <span id="totalPedido">0,00</span></div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn yellow" onclick="salvarPedido()">Salvar pedido</button>
+            <button class="btn secondary" onclick="limparPedido()">Limpar</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn" onclick="gerarPDFCliente()">PDF para cliente</button>
+            <button class="btn secondary" onclick="gerarComandaImpressao()">Imprimir comanda</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h2>Produtos do catálogo</h2>
+        <div id="produtos" class="products"></div>
+      </div>
+    </section>
+
+    <section id="producao" class="tab hidden">
+      <div class="card">
+        <h2>Produção diária</h2>
+        <p class="muted">A produção é calculada automaticamente pelos pedidos salvos no histórico. Ao editar ou excluir pedido, esta lista é corrigida sozinha.</p>
+        <div id="producaoLista"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn yellow" onclick="imprimirRelatorioProducao()">Imprimir relatório de produção</button>
+          <button class="btn" onclick="finalizarProducao()">Produção segura</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn red" onclick="zerarProducao()">Produção automática</button>
+          <button class="btn secondary" onclick="render()">Atualizar tela</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2>Saldo disponível</h2>
+        <div id="saldoLista"></div>
+      </div>
+    </section>
+
+    <section id="historico" class="tab hidden">
+      <div class="card">
+        <h2>Histórico de pedidos</h2>
+        <div class="row">
+          <button class="btn secondary" onclick="exportarCSV()">Exportar relatório CSV</button>
+          <button class="btn red" onclick="limparHistorico()">Apagar histórico</button>
+        </div>
+        <div id="historicoLista" style="margin-top:12px"></div>
+      </div>
+    </section>
+
+    <section id="catalogo" class="tab hidden">
+      <div class="card">
+        <h2>Editar / incluir produto</h2>
+        <label>Nome do produto</label><input id="novoNome" placeholder="Ex: Mix Arroz Primavera">
+        <div class="row">
+          <div><label>Unidade / peso</label><input id="novoUnidade" placeholder="Ex: 400g, pote 350ml"></div>
+          <div><label>Preço R$</label><input id="novoPreco" type="number" step="0.01" placeholder="10.00"></div>
+        </div>
+        <button class="btn yellow" style="margin-top:10px" onclick="adicionarProduto()">Adicionar ao catálogo</button>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2>Produtos cadastrados</h2>
+        <div id="catalogoLista"></div>
+      </div>
+    </section>
+  </main>
+
+<script>
+const catalogoInicial = [
+  // LEGUMES
+  ["LEGUMES","Cabotiá","400g",8],
+  ["LEGUMES","Abóbora picada","400g",6],
+  ["LEGUMES","Abóbora fatiada","400g",6],
+  ["LEGUMES","Abóbora ralada","400g",6],
+  ["LEGUMES","Cenoura fatiada","300g",6],
+  ["LEGUMES","Cenoura picada","300g",6],
+  ["LEGUMES","Cenoura julienne","300g",7],
+  ["LEGUMES","Batata doce","400g",6],
+  ["LEGUMES","Mandioca","700g",7],
+  ["LEGUMES","Beterraba","300g",6],
+  ["LEGUMES","Brócolis","200g",9],
+  ["LEGUMES","Jiló","200g",6],
+  ["LEGUMES","Quiabo","200g",7],
+  ["LEGUMES","Chuchu","400g",6],
+  ["LEGUMES","Vagem picada","300g",10],
+  ["LEGUMES","Milho verde picadinho","250g",7],
+
+  // MIX
+  ["MIX","Mix Cenoura e Vagem","300g",9],
+  ["MIX","Mix Cabotiá","400g",9],
+  ["MIX","Mix Ensopado","400g",8],
+  ["MIX","Mix Sopa","400g",8],
+  ["MIX","Mix Salada","400g",8],
+  ["MIX","Mix Maionese","400g",10],
+  ["MIX","Mix Mandioquinha","400g",10],
+  ["MIX","Mix Low Carb","400g",12],
+  ["MIX","Mix Arroz Primavera","400g",12],
+
+  // FRUTAS
+  ["FRUTAS","Abacaxi em cubos","250ml",5],
+  ["FRUTAS","Melão em cubos","250ml",5],
+  ["FRUTAS","Melancia em cubos","350ml",5],
+  ["FRUTAS","Mix Frutas","melão, uva, kiwi e mamão 250ml",7],
+  ["FRUTAS","Kiwi em cubos","250ml",9],
+  ["FRUTAS","Mamão em cubos","250ml",5],
+
+  // TEMPEROS
+  ["TEMPEROS","Alho picadinho","200g",10],
+  ["TEMPEROS","Cheiro verde","unidade",7],
+
+  // SALADAS
+  ["SALADAS","Salada 1 - Mista, beterraba, repolho verde e cenoura","unidade",5],
+  ["SALADAS","Salada 2 - Mista, repolho roxo e cenoura","unidade",4],
+  ["SALADAS","Salada 3 - Mista, repolho verde e cenoura","unidade",4],
+  ["SALADAS","Salada 4 - Mista, alface, cenoura e beterraba","unidade",5],
+  ["SALADAS","Salada 5 - Mista, alface, pepino e cenoura","unidade",5],
+  ["SALADAS","Salada na bandeja","beterraba, cenoura, repolho verde, repolho roxo, pepino e tomate cereja",12],
+
+  // VERDURAS HIGIENIZADAS
+  ["VERDURAS HIGIENIZADAS","Alface crespa","200g",8],
+  ["VERDURAS HIGIENIZADAS","Alface americana","200g",10],
+  ["VERDURAS HIGIENIZADAS","Rúcula","200g",12],
+  ["VERDURAS HIGIENIZADAS","Couve picadinha","200g",8],
+  ["VERDURAS HIGIENIZADAS","Repolho verde picadinho - embalagem a vácuo","300g",8],
+  ["VERDURAS HIGIENIZADAS","Repolho roxo picadinho - embalagem a vácuo","300g",9],
+
+  // DOCES
+  ["DOCES","Doce de abóbora caseiro no potinho","300g",8],
+  ["DOCES","Doce de mamão verde em pedaços","350ml",10],
+  ["DOCES","Doce de mamão ralado com doce de leite","300g",12]
+].map((p,i)=>({id:Date.now()+i,categoria:p[0],nome:p[1],unidade:p[2],preco:p[3]}));
+
+let catalogo = JSON.parse(localStorage.getItem("catalogoTaithi") || "null") || catalogoInicial;
+const versaoCatalogo = "catalogo-cardapio-2026-07-02";
+if(localStorage.getItem("versaoCatalogoTaithi") !== versaoCatalogo){
+  catalogo = catalogoInicial;
+  localStorage.setItem("versaoCatalogoTaithi", versaoCatalogo);
+  localStorage.setItem("catalogoTaithi", JSON.stringify(catalogo));
+}
+let pedidoAtual = JSON.parse(localStorage.getItem("pedidoAtualTaithi") || "{}");
+let producao = JSON.parse(localStorage.getItem("producaoTaithi") || "{}");
+let saldo = JSON.parse(localStorage.getItem("saldoTaithi") || "{}");
+let historico = JSON.parse(localStorage.getItem("historicoTaithi") || "[]");
+let editandoPedidoIndex = null;
+
+function money(n){ return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function recalcularProducao(){
+  const novaProducao = {};
+  historico.forEach(pedido=>{
+    (pedido.itens || []).forEach(item=>{
+      novaProducao[item.id] = (novaProducao[item.id] || 0) + Number(item.qtd || 0);
+    });
+  });
+  producao = novaProducao;
+}
+
+function save(){
+  recalcularProducao();
+  localStorage.setItem("catalogoTaithi", JSON.stringify(catalogo));
+  localStorage.setItem("pedidoAtualTaithi", JSON.stringify(pedidoAtual));
+  localStorage.setItem("producaoTaithi", JSON.stringify(producao));
+  localStorage.setItem("saldoTaithi", JSON.stringify(saldo));
+  localStorage.setItem("historicoTaithi", JSON.stringify(historico));
+}
+function showTab(id, btn){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  render();
+}
+function addItem(id, qtd=1){
+  const p = catalogo.find(x=>x.id==id); if(!p) return;
+  pedidoAtual[id] = (pedidoAtual[id]||0) + qtd;
+  if(pedidoAtual[id] <= 0) delete pedidoAtual[id];
+  localStorage.setItem("pedidoAtualTaithi", JSON.stringify(pedidoAtual));
+  render();
+}
+function renderProdutos(){
+  const box=document.getElementById("produtos"); box.innerHTML="";
+  let catAtual = "";
+  catalogo.forEach(p=>{
+    if((p.categoria||"") !== catAtual){
+      catAtual = p.categoria || "PRODUTOS";
+      box.innerHTML += `<h3 style="grid-column:1/-1;background:#eef4ec;border-radius:12px;padding:10px;margin:8px 0 2px">${catAtual}</h3>`;
+    }
+    const q=pedidoAtual[p.id]||0;
+    box.innerHTML += `<div class="prod"><div><b>${p.nome}</b><span>${p.unidade} • R$ ${money(p.preco)}</span></div>
+      <div class="qty"><button class="minus" onclick="addItem(${p.id},-1)">−</button><strong>${q}</strong><button onclick="addItem(${p.id},1)">+</button></div></div>`;
+  });
+}
+function renderResumo(){
+  let html="", total=0;
+  Object.entries(pedidoAtual).forEach(([id,q])=>{
+    const p=catalogo.find(x=>x.id==id); if(!p) return;
+    total += q*p.preco;
+    html += `<div class="summary"><span>${q}x ${p.nome}</span><b>R$ ${money(q*p.preco)}</b></div>`;
+  });
+  document.getElementById("resumoItens").innerHTML = html || "Nenhum item incluído ainda.";
+  document.getElementById("totalPedido").textContent = money(total);
+}
+function salvarPedido(){
+  if(Object.keys(pedidoAtual).length===0){ alert("Inclua pelo menos um produto."); return; }
+  const total = Object.entries(pedidoAtual).reduce((s,[id,q])=>{
+    const p=catalogo.find(x=>x.id==id); return s + (p ? q*p.preco : 0);
+  },0);
+  const pedido = {
+    data:new Date().toLocaleString("pt-BR"),
+    cliente:document.getElementById("clienteNome").value || "Cliente sem nome",
+    telefone:document.getElementById("clienteTelefone").value,
+    endereco:document.getElementById("clienteEndereco").value,
+    obs:document.getElementById("obs").value,
+    status:document.getElementById("statusPagamento").value,
+    forma:document.getElementById("formaPagamento").value,
+    valor:document.getElementById("valorPedido").value || total,
+    itens:Object.entries(pedidoAtual).map(([id,q])=>({id:Number(id),qtd:q,nome:(catalogo.find(x=>x.id==id)||{}).nome,preco:(catalogo.find(x=>x.id==id)||{}).preco}))
+  };
+
+  if(editandoPedidoIndex !== null){
+    historico[editandoPedidoIndex] = pedido;
+    editandoPedidoIndex = null;
+    alert("Pedido atualizado com sucesso!");
+  } else {
+    historico.unshift(pedido);
+    alert("Pedido salvo e produção atualizada!");
+  }
+
+  pedidoAtual = {};
+  ["clienteNome","clienteTelefone","clienteEndereco","obs","valorPedido"].forEach(id=>document.getElementById(id).value="");
+  save(); render();
+}
+function limparPedido(){ pedidoAtual={}; save(); render(); }
+function renderProducao(){
+  recalcularProducao();
+  let html="<table><tr><th>Produto</th><th>Produzir</th></tr>";
+  catalogo.forEach(p=>{ if((producao[p.id]||0)>0) html+=`<tr><td>${p.nome}<br><span class="muted">${p.unidade}</span></td><td><b>${producao[p.id]}</b></td></tr>`; });
+  html+="</table>";
+  document.getElementById("producaoLista").innerHTML = html.includes("<td>") ? html : "<p class='muted'>Nenhum item para produzir ainda.</p>";
+  let saldoHtml="<table><tr><th>Produto</th><th>Saldo</th><th>Ajustar</th></tr>";
+  catalogo.forEach(p=>{ saldoHtml+=`<tr><td>${p.nome}</td><td><b>${saldo[p.id]||0}</b></td><td><button class="btn small secondary" onclick="ajustarSaldo(${p.id},1)">+1</button> <button class="btn small secondary" onclick="ajustarSaldo(${p.id},-1)">-1</button></td></tr>`; });
+  saldoHtml+="</table>";
+  document.getElementById("saldoLista").innerHTML = saldoHtml;
+}
+function finalizarProducao(){
+  alert("Para evitar erro na produção, esta versão mantém a produção sempre ligada aos pedidos salvos. Se quiser baixar produção do dia, primeiro imprima o relatório e depois me peça para criar a função 'marcar pedidos como produzidos/entregues'.");
+}
+function zerarProducao(){
+  alert("A produção não pode ser zerada manualmente, porque ela é calculada pelos pedidos salvos. Para tirar um item da produção, edite ou exclua o pedido correspondente.");
+}
+function ajustarSaldo(id,q){ saldo[id]=Math.max(0,(saldo[id]||0)+q); save(); render(); }
+function renderHistorico(){
+  if(historico.length===0){document.getElementById("historicoLista").innerHTML="<p class='muted'>Nenhum pedido salvo.</p>";return;}
+  document.getElementById("historicoLista").innerHTML = historico.map((p,i)=>{
+    const itens=p.itens.map(x=>`${x.qtd}x ${x.nome}`).join(", ");
+    return `<div class="card" style="margin:8px 0"><b>${p.cliente}</b> <span class="pill">${p.status}</span> <span class="pill">${p.forma}</span><br>
+      <span class="muted">${p.data} • ${p.telefone || ""}</span><br>
+      <b>R$ ${money(p.valor)}</b><br>${itens}<br>
+      ${p.endereco?`<span class="muted">Endereço: ${p.endereco}</span><br>`:""}
+      ${p.obs?`<span class="dangerText">Obs: ${p.obs}</span><br>`:""}
+      <button class="btn small yellow" onclick="reabrirPedido(${i})">Reabrir / editar</button>
+      <button class="btn small red" onclick="excluirPedido(${i})">Excluir</button></div>`;
+  }).join("");
+}
+function reabrirPedido(i){
+  const p = historico[i];
+  if(!p){ return; }
+  pedidoAtual = {};
+  p.itens.forEach(item=>{
+    pedidoAtual[item.id] = item.qtd;
+  });
+  document.getElementById("clienteNome").value = p.cliente || "";
+  document.getElementById("clienteTelefone").value = p.telefone || "";
+  document.getElementById("clienteEndereco").value = p.endereco || "";
+  document.getElementById("obs").value = p.obs || "";
+  document.getElementById("statusPagamento").value = p.status || "Pendente";
+  document.getElementById("formaPagamento").value = p.forma || "Pix";
+  document.getElementById("valorPedido").value = p.valor || "";
+  editandoPedidoIndex = i;
+  document.querySelectorAll(".tab").forEach(t=>t.classList.add("hidden"));
+  document.getElementById("pedido").classList.remove("hidden");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll("nav button")[0].classList.add("active");
+  save(); render();
+  alert("Pedido reaberto. Inclua ou retire itens e depois clique em Salvar pedido.");
+}
+function excluirPedido(i){ if(confirm("Excluir este pedido do histórico?")){historico.splice(i,1); save(); render();} }
+function limparHistorico(){ if(confirm("Apagar todo o histórico?")){historico=[]; save(); render();} }
+function renderCatalogo(){
+  document.getElementById("catalogoLista").innerHTML = catalogo.map(p=>`<div class="prod"><div><b>${p.nome}</b><span>${p.unidade} • R$ ${money(p.preco)}</span></div><button class="btn small red" onclick="removerProduto(${p.id})">Remover</button></div>`).join("");
+}
+function adicionarProduto(){
+  const nome=document.getElementById("novoNome").value.trim(), unidade=document.getElementById("novoUnidade").value.trim()||"unidade", preco=Number(document.getElementById("novoPreco").value||0);
+  if(!nome){alert("Digite o nome do produto.");return;}
+  catalogo.push({id:Date.now(),categoria:"NOVOS PRODUTOS",nome,unidade,preco});
+  document.getElementById("novoNome").value="";document.getElementById("novoUnidade").value="";document.getElementById("novoPreco").value="";
+  save(); render();
+}
+function removerProduto(id){ if(confirm("Remover produto do catálogo?")){catalogo=catalogo.filter(p=>p.id!==id); save(); render();} }
+
+
+function imprimirRelatorioProducao(){
+  const itens = catalogo
+    .map(p=>({nome:p.nome, unidade:p.unidade, categoria:p.categoria||"PRODUTOS", qtd:producao[p.id]||0}))
+    .filter(x=>x.qtd>0);
+
+  if(itens.length===0){ alert("Não há itens na produção diária."); return; }
+
+  let catAtual = "";
+  let linhas = "";
+  itens.forEach(x=>{
+    if(x.categoria !== catAtual){
+      catAtual = x.categoria;
+      linhas += `<tr><th colspan="3" class="cat">${catAtual}</th></tr>`;
+    }
+    linhas += `<tr><td>${x.nome}<br><small>${x.unidade}</small></td><td class="qtd">${x.qtd}</td><td class="check">☐</td></tr>`;
+  });
+
+  const doc = `
+<!doctype html><html><head><meta charset="utf-8"><title>Relatório de Produção</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:22px;color:#172117}
+  .box{max-width:760px;margin:auto}
+  h1{margin:0;color:#1f7a3a;font-size:25px}
+  h2{margin:4px 0 16px;font-size:18px;color:#333;border-bottom:3px solid #ffd84d;padding-bottom:10px}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  th,td{border:1px solid #ddd;padding:10px;text-align:left;vertical-align:middle}
+  th{background:#eef4ec;color:#1f7a3a}
+  .cat{background:#1f7a3a;color:white;text-align:center;font-size:16px}
+  .qtd{font-size:22px;font-weight:bold;text-align:center;width:90px}
+  .check{text-align:center;width:70px;font-size:24px}
+  .print{margin:12px auto;display:block;padding:12px 18px;border:0;border-radius:10px;background:#1f7a3a;color:white;font-weight:bold}
+  .data{margin:8px 0 14px;color:#555}
+  @media print{.print{display:none} body{padding:0}}
+</style></head>
+<body>
+<button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button>
+<div class="box">
+  <h1>Taithi Hortifrutis</h1>
+  <h2>Relatório de produção diária</h2>
+  <div class="data">Gerado em: ${new Date().toLocaleString("pt-BR")}</div>
+  <table>
+    <tr><th>Produto</th><th>Quantidade</th><th>Feito</th></tr>
+    ${linhas}
+  </table>
+</div>
+</body></html>`;
+  const w = window.open("", "_blank");
+  w.document.write(doc);
+  w.document.close();
+}
+
+function dadosPedidoAtual(){
+  const itens = Object.entries(pedidoAtual).map(([id,q])=>{
+    const p=catalogo.find(x=>x.id==id);
+    return p ? {nome:p.nome, unidade:p.unidade, qtd:q, preco:p.preco, subtotal:q*p.preco} : null;
+  }).filter(Boolean);
+  const total = itens.reduce((s,x)=>s+x.subtotal,0);
+  return {
+    data:new Date().toLocaleString("pt-BR"),
+    cliente:document.getElementById("clienteNome").value || "Cliente",
+    telefone:document.getElementById("clienteTelefone").value || "",
+    endereco:document.getElementById("clienteEndereco").value || "",
+    obs:document.getElementById("obs").value || "",
+    status:document.getElementById("statusPagamento").value,
+    forma:document.getElementById("formaPagamento").value,
+    valor:document.getElementById("valorPedido").value || total,
+    itens,total
+  };
+}
+function abrirDocumentoPedido(tipo){
+  const p = dadosPedidoAtual();
+  if(p.itens.length===0){ alert("Inclua pelo menos um produto antes de gerar."); return; }
+  const mostrarEndereco = tipo === "comanda";
+  const titulo = tipo === "comanda" ? "COMANDA DE PRODUÇÃO / ENTREGA" : "RESUMO DO PEDIDO";
+  const linhas = p.itens.map(x=>`
+    <tr>
+      <td>${x.qtd}x</td>
+      <td>${x.nome}<br><small>${x.unidade}</small></td>
+      <td>R$ ${money(x.preco)}</td>
+      <td><b>R$ ${money(x.subtotal)}</b></td>
+    </tr>`).join("");
+  const doc = `
+<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:22px;color:#172117}
+  .box{max-width:760px;margin:auto;border:1px solid #ddd;border-radius:14px;padding:20px}
+  h1{margin:0;color:#1f7a3a;font-size:25px}
+  h2{margin:4px 0 16px;font-size:18px;color:#333}
+  .marca{border-bottom:3px solid #ffd84d;padding-bottom:10px;margin-bottom:14px}
+  .info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .info div{background:#f6f7f2;border-radius:10px;padding:9px}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  th,td{border-bottom:1px solid #ddd;padding:9px;text-align:left;vertical-align:top}
+  th{background:#eef4ec;color:#1f7a3a}
+  .total{font-size:24px;text-align:right;margin-top:18px;background:#fff8d7;border:1px solid #edd36b;border-radius:12px;padding:14px}
+  .obs{margin-top:12px;padding:10px;border-radius:10px;background:#fff3f0;border:1px solid #ffd1c7}
+  .footer{margin-top:18px;text-align:center;color:#555;font-size:13px}
+  .print{margin:12px auto;display:block;padding:12px 18px;border:0;border-radius:10px;background:#1f7a3a;color:white;font-weight:bold}
+  @media print{.print{display:none}.box{border:0;padding:0} body{padding:0}}
+</style></head>
+<body>
+<button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button>
+<div class="box">
+  <div class="marca">
+    <h1>Taithi Hortifrutis</h1>
+    <h2>${titulo}</h2>
+    <div>Data: ${p.data}</div>
+  </div>
+  <div class="info">
+    <div><b>Cliente:</b><br>${p.cliente}</div>
+    <div><b>Telefone:</b><br>${p.telefone}</div>
+    ${mostrarEndereco ? `<div><b>Endereço:</b><br>${p.endereco}</div>` : ""}
+    <div><b>Pagamento:</b><br>${p.status} - ${p.forma}</div>
+  </div>
+  <table>
+    <tr><th>Qtd.</th><th>Produto</th><th>Valor un.</th><th>Subtotal</th></tr>
+    ${linhas}
+  </table>
+  ${p.obs ? `<div class="obs"><b>Observação:</b><br>${p.obs}</div>` : ""}
+  <div class="total">TOTAL: R$ ${money(p.valor)}</div>
+  <div class="footer">Produtos frescos e prontos para facilitar seu dia!</div>
+</div>
+</body></html>`;
+  const w = window.open("", "_blank");
+  w.document.write(doc);
+  w.document.close();
+}
+function gerarPDFCliente(){ abrirDocumentoPedido("cliente"); }
+function gerarComandaImpressao(){ abrirDocumentoPedido("comanda"); }
+
+function exportarCSV(){
+  let linhas=["Data;Cliente;Telefone;Endereco;Status;Forma;Valor;Itens;Observacao"];
+  historico.forEach(p=>linhas.push([p.data,p.cliente,p.telefone,p.endereco,p.status,p.forma,money(p.valor),p.itens.map(x=>`${x.qtd}x ${x.nome}`).join(" | "),p.obs].map(v=>`"${String(v||"").replaceAll('"','""')}"`).join(";")));
+  const blob=new Blob([linhas.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="relatorio-pedidos-taithi.csv"; a.click();
+}
+function render(){ renderProdutos(); renderResumo(); renderProducao(); renderHistorico(); renderCatalogo(); }
+render();
+</script>
+</body>
+</html>
