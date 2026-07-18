@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Taithi Hortifrutis - Pedidos e Produção</title>
+  <title>HortiFlow - Taithi Hortifrutis</title>
+  <meta name="theme-color" content="#1f7a3a" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root{
       --green:#1f7a3a; --green2:#2fa84f; --yellow:#ffd84d; --bg:#f6f7f2; --card:#fff;
@@ -49,12 +51,30 @@
     .totalBox{background:#fff8d7;border:1px solid #edd36b;border-radius:14px;padding:12px;font-weight:800}
     .muted{color:var(--muted);font-size:13px}
     .dangerText{color:var(--red);font-weight:700}
+    .loginWrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px;background:linear-gradient(135deg,#eff8ed,#fff8d7)}
+    .loginCard{width:min(430px,100%);background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:0 8px 30px #0002}
+    .statusbar{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;margin-top:8px}
+    .statusbar .btn{padding:7px 10px}
+    .syncOk{color:#eaffea;font-weight:700}
   </style>
 </head>
 <body>
+  <div id="loginView" class="loginWrap">
+    <div class="loginCard">
+      <h1 style="color:var(--green);margin:0 0 6px">HortiFlow</h1>
+      <p class="muted">Entre com seu e-mail e senha.</p>
+      <label>E-mail</label><input id="loginEmail" type="email" autocomplete="email">
+      <label>Senha</label><input id="loginSenha" type="password" autocomplete="current-password">
+      <button class="btn" style="width:100%;margin-top:12px" onclick="entrar()">Entrar</button>
+      <p id="loginMsg" class="dangerText"></p>
+    </div>
+  </div>
+
+  <div id="appView" class="hidden">
   <header>
-    <h1>Taithi Hortifrutis</h1>
-    <p>Pedidos, produção diária, saldo e histórico</p>
+    <h1>HortiFlow • Taithi Hortifrutis</h1>
+    <p>Pedidos, produção diária, saldo e histórico na nuvem</p>
+    <div class="statusbar"><span id="syncStatus" class="syncOk">Conectando...</span><button class="btn small secondary" onclick="sair()">Sair</button></div>
   </header>
 
   <nav>
@@ -62,6 +82,7 @@
     <button onclick="showTab('producao', this)">Produção</button>
     <button onclick="showTab('historico', this)">Histórico</button>
     <button onclick="showTab('catalogo', this)">Catálogo</button>
+    <button onclick="showTab('clientes', this)">Clientes</button>
   </nav>
 
   <main>
@@ -69,6 +90,8 @@
       <div class="grid two">
         <div class="card">
           <h2>Cliente</h2>
+          <label>Cliente cadastrado</label>
+          <select id="clienteSelect" onchange="preencherCliente()"><option value="">Selecionar cliente</option></select>
           <label>Nome</label><input id="clienteNome" placeholder="Nome do cliente">
           <label>Telefone</label><input id="clienteTelefone" placeholder="WhatsApp / telefone">
           <label>Endereço</label><input id="clienteEndereco" placeholder="Rua, número, bairro">
@@ -92,6 +115,7 @@
               </select>
             </div>
           </div>
+          <label>Data de entrega</label><input id="dataEntrega" type="date">
           <label>Valor recebido / combinado</label><input id="valorPedido" type="number" step="0.01" placeholder="Ex: 35.00">
         </div>
 
@@ -162,379 +186,196 @@
         <div id="catalogoLista"></div>
       </div>
     </section>
+
+    <section id="clientes" class="tab hidden">
+      <div class="grid two">
+        <div class="card">
+          <h2>Cadastrar cliente</h2>
+          <label>Nome</label><input id="cadNome" placeholder="Nome do cliente">
+          <label>Telefone</label><input id="cadTelefone" placeholder="WhatsApp / telefone">
+          <label>Endereço</label><input id="cadEndereco" placeholder="Rua, número">
+          <div class="row">
+            <div><label>Bairro</label><input id="cadBairro"></div>
+            <div><label>Cidade</label><input id="cadCidade"></div>
+          </div>
+          <label>Observação</label><textarea id="cadObs"></textarea>
+          <button class="btn yellow" style="margin-top:10px" onclick="salvarCliente()">Salvar cliente</button>
+        </div>
+        <div class="card">
+          <h2>Clientes salvos</h2>
+          <div id="clientesLista"></div>
+        </div>
+      </div>
+    </section>
   </main>
+  </div>
 
 <script>
+const SUPABASE_URL = 'https://jfkgbhqagfwjhmjqloph.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ipD8fk5YpsECUwT4pCuM3w_WaYIVrfT';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const catalogoInicial = [
-  // LEGUMES
-  ["LEGUMES","Cabotiá","400g",8],
-  ["LEGUMES","Abóbora picada","400g",6],
-  ["LEGUMES","Abóbora fatiada","400g",6],
-  ["LEGUMES","Abóbora ralada","400g",6],
-  ["LEGUMES","Cenoura fatiada","300g",6],
-  ["LEGUMES","Cenoura picada","300g",6],
-  ["LEGUMES","Cenoura julienne","300g",7],
-  ["LEGUMES","Batata doce","400g",6],
-  ["LEGUMES","Mandioca","700g",7],
-  ["LEGUMES","Beterraba","300g",6],
-  ["LEGUMES","Brócolis","200g",9],
-  ["LEGUMES","Jiló","200g",6],
-  ["LEGUMES","Quiabo","200g",7],
-  ["LEGUMES","Chuchu","400g",6],
-  ["LEGUMES","Vagem picada","300g",10],
+  ["LEGUMES","Cabotiá","400g",8],["LEGUMES","Abóbora picada","400g",6],["LEGUMES","Abóbora fatiada","400g",6],
+  ["LEGUMES","Abóbora ralada","400g",6],["LEGUMES","Cenoura fatiada","300g",6],["LEGUMES","Cenoura picada","300g",6],
+  ["LEGUMES","Cenoura julienne","300g",7],["LEGUMES","Batata doce","400g",6],["LEGUMES","Mandioca","700g",7],
+  ["LEGUMES","Beterraba","300g",6],["LEGUMES","Brócolis","200g",9],["LEGUMES","Jiló","200g",6],
+  ["LEGUMES","Quiabo","200g",7],["LEGUMES","Chuchu","400g",6],["LEGUMES","Vagem picada","300g",10],
   ["LEGUMES","Milho verde picadinho","250g",7],
-
-  // MIX
-  ["MIX","Mix Cenoura e Vagem","300g",9],
-  ["MIX","Mix Cabotiá","400g",9],
-  ["MIX","Mix Ensopado","400g",8],
-  ["MIX","Mix Sopa","400g",8],
-  ["MIX","Mix Salada","400g",8],
-  ["MIX","Mix Maionese","400g",10],
-  ["MIX","Mix Mandioquinha","400g",10],
-  ["MIX","Mix Low Carb","400g",12],
-  ["MIX","Mix Arroz Primavera","400g",12],
-
-  // FRUTAS
-  ["FRUTAS","Abacaxi em cubos","250ml",5],
-  ["FRUTAS","Melão em cubos","250ml",5],
-  ["FRUTAS","Melancia em cubos","350ml",5],
-  ["FRUTAS","Mix Frutas","melão, uva, kiwi e mamão 250ml",7],
-  ["FRUTAS","Kiwi em cubos","250ml",9],
-  ["FRUTAS","Mamão em cubos","250ml",5],
-
-  // TEMPEROS
-  ["TEMPEROS","Alho picadinho","200g",10],
-  ["TEMPEROS","Cheiro verde","unidade",7],
-
-  // SALADAS
+  ["MIX","Mix Cenoura e Vagem","300g",9],["MIX","Mix Cabotiá","400g",9],["MIX","Mix Ensopado","400g",8],
+  ["MIX","Mix Sopa","400g",8],["MIX","Mix Salada","400g",8],["MIX","Mix Maionese","400g",10],
+  ["MIX","Mix Mandioquinha","400g",10],["MIX","Mix Low Carb","400g",12],["MIX","Mix Arroz Primavera","400g",12],
+  ["FRUTAS","Abacaxi em cubos","250ml",5],["FRUTAS","Melão em cubos","250ml",5],["FRUTAS","Melancia em cubos","350ml",5],
+  ["FRUTAS","Mix Frutas","melão, uva, kiwi e mamão 250ml",7],["FRUTAS","Kiwi em cubos","250ml",9],["FRUTAS","Mamão em cubos","250ml",5],
+  ["TEMPEROS","Alho picadinho","200g",10],["TEMPEROS","Cheiro verde","unidade",7],
   ["SALADAS","Salada 1 - Mista, beterraba, repolho verde e cenoura","unidade",5],
   ["SALADAS","Salada 2 - Mista, repolho roxo e cenoura","unidade",4],
   ["SALADAS","Salada 3 - Mista, repolho verde e cenoura","unidade",4],
   ["SALADAS","Salada 4 - Mista, alface, cenoura e beterraba","unidade",5],
   ["SALADAS","Salada 5 - Mista, alface, pepino e cenoura","unidade",5],
   ["SALADAS","Salada na bandeja","beterraba, cenoura, repolho verde, repolho roxo, pepino e tomate cereja",12],
-
-  // VERDURAS HIGIENIZADAS
-  ["VERDURAS HIGIENIZADAS","Alface crespa","200g",8],
-  ["VERDURAS HIGIENIZADAS","Alface americana","200g",10],
-  ["VERDURAS HIGIENIZADAS","Rúcula","200g",12],
-  ["VERDURAS HIGIENIZADAS","Couve picadinha","200g",8],
+  ["VERDURAS HIGIENIZADAS","Alface crespa","200g",8],["VERDURAS HIGIENIZADAS","Alface americana","200g",10],
+  ["VERDURAS HIGIENIZADAS","Rúcula","200g",12],["VERDURAS HIGIENIZADAS","Couve picadinha","200g",8],
   ["VERDURAS HIGIENIZADAS","Repolho verde picadinho - embalagem a vácuo","300g",8],
   ["VERDURAS HIGIENIZADAS","Repolho roxo picadinho - embalagem a vácuo","300g",9],
-
-  // DOCES
-  ["DOCES","Doce de abóbora caseiro no potinho","300g",8],
-  ["DOCES","Doce de mamão verde em pedaços","350ml",10],
+  ["DOCES","Doce de abóbora caseiro no potinho","300g",8],["DOCES","Doce de mamão verde em pedaços","350ml",10],
   ["DOCES","Doce de mamão ralado com doce de leite","300g",12]
-].map((p,i)=>({id:Date.now()+i,categoria:p[0],nome:p[1],unidade:p[2],preco:p[3]}));
+].map((p,i)=>({id:i+1,categoria:p[0],nome:p[1],unidade:p[2],preco:p[3]}));
 
-let catalogo = JSON.parse(localStorage.getItem("catalogoTaithi") || "null") || catalogoInicial;
-const versaoCatalogo = "catalogo-cardapio-2026-07-02";
-if(localStorage.getItem("versaoCatalogoTaithi") !== versaoCatalogo){
-  catalogo = catalogoInicial;
-  localStorage.setItem("versaoCatalogoTaithi", versaoCatalogo);
-  localStorage.setItem("catalogoTaithi", JSON.stringify(catalogo));
-}
-let pedidoAtual = JSON.parse(localStorage.getItem("pedidoAtualTaithi") || "{}");
-let producao = JSON.parse(localStorage.getItem("producaoTaithi") || "{}");
-let saldo = JSON.parse(localStorage.getItem("saldoTaithi") || "{}");
-let historico = JSON.parse(localStorage.getItem("historicoTaithi") || "[]");
-let editandoPedidoIndex = null;
+let catalogo = JSON.parse(localStorage.getItem('catalogoTaithi') || 'null') || catalogoInicial;
+let pedidoAtual = JSON.parse(localStorage.getItem('pedidoAtualTaithi') || '{}');
+let saldo = JSON.parse(localStorage.getItem('saldoTaithi') || '{}');
+let historico = [];
+let clientes = [];
+let editandoPedidoId = null;
+let canalRealtime = null;
 
-function money(n){ return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function recalcularProducao(){
-  const novaProducao = {};
-  historico.forEach(pedido=>{
-    (pedido.itens || []).forEach(item=>{
-      novaProducao[item.id] = (novaProducao[item.id] || 0) + Number(item.qtd || 0);
-    });
-  });
-  producao = novaProducao;
-}
-
-function save(){
-  recalcularProducao();
-  localStorage.setItem("catalogoTaithi", JSON.stringify(catalogo));
-  localStorage.setItem("pedidoAtualTaithi", JSON.stringify(pedidoAtual));
-  localStorage.setItem("producaoTaithi", JSON.stringify(producao));
-  localStorage.setItem("saldoTaithi", JSON.stringify(saldo));
-  localStorage.setItem("historicoTaithi", JSON.stringify(historico));
-}
+function money(n){ return Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function showTab(id, btn){
-  document.querySelectorAll(".tab").forEach(t=>t.classList.add("hidden"));
-  document.getElementById(id).classList.remove("hidden");
-  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
-  btn.classList.add("active");
+  document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
   render();
 }
 function addItem(id, qtd=1){
-  const p = catalogo.find(x=>x.id==id); if(!p) return;
-  pedidoAtual[id] = (pedidoAtual[id]||0) + qtd;
-  if(pedidoAtual[id] <= 0) delete pedidoAtual[id];
-  localStorage.setItem("pedidoAtualTaithi", JSON.stringify(pedidoAtual));
-  render();
+  pedidoAtual[id]=(pedidoAtual[id]||0)+qtd;
+  if(pedidoAtual[id]<=0) delete pedidoAtual[id];
+  localStorage.setItem('pedidoAtualTaithi',JSON.stringify(pedidoAtual));
+  renderProdutos(); renderResumo();
 }
 function renderProdutos(){
-  const box=document.getElementById("produtos"); box.innerHTML="";
-  let catAtual = "";
+  const box=document.getElementById('produtos'); box.innerHTML=''; let catAtual='';
   catalogo.forEach(p=>{
-    if((p.categoria||"") !== catAtual){
-      catAtual = p.categoria || "PRODUTOS";
-      box.innerHTML += `<h3 style="grid-column:1/-1;background:#eef4ec;border-radius:12px;padding:10px;margin:8px 0 2px">${catAtual}</h3>`;
-    }
+    if((p.categoria||'')!==catAtual){catAtual=p.categoria||'PRODUTOS';box.innerHTML+=`<h3 style="grid-column:1/-1;background:#eef4ec;border-radius:12px;padding:10px;margin:8px 0 2px">${catAtual}</h3>`;}
     const q=pedidoAtual[p.id]||0;
-    box.innerHTML += `<div class="prod"><div><b>${p.nome}</b><span>${p.unidade} • R$ ${money(p.preco)}</span></div>
-      <div class="qty"><button class="minus" onclick="addItem(${p.id},-1)">−</button><strong>${q}</strong><button onclick="addItem(${p.id},1)">+</button></div></div>`;
+    box.innerHTML+=`<div class="prod"><div><b>${p.nome}</b><span>${p.unidade} • R$ ${money(p.preco)}</span></div><div class="qty"><button class="minus" onclick="addItem(${p.id},-1)">−</button><strong>${q}</strong><button onclick="addItem(${p.id},1)">+</button></div></div>`;
   });
 }
 function renderResumo(){
-  let html="", total=0;
-  Object.entries(pedidoAtual).forEach(([id,q])=>{
-    const p=catalogo.find(x=>x.id==id); if(!p) return;
-    total += q*p.preco;
-    html += `<div class="summary"><span>${q}x ${p.nome}</span><b>R$ ${money(q*p.preco)}</b></div>`;
-  });
-  document.getElementById("resumoItens").innerHTML = html || "Nenhum item incluído ainda.";
-  document.getElementById("totalPedido").textContent = money(total);
+  let html='',total=0;
+  Object.entries(pedidoAtual).forEach(([id,q])=>{const p=catalogo.find(x=>x.id==id);if(!p)return;total+=q*p.preco;html+=`<div class="summary"><span>${q}x ${p.nome}</span><b>R$ ${money(q*p.preco)}</b></div>`;});
+  document.getElementById('resumoItens').innerHTML=html||'Nenhum item incluído ainda.';
+  document.getElementById('totalPedido').textContent=money(total);
 }
-function salvarPedido(){
-  if(Object.keys(pedidoAtual).length===0){ alert("Inclua pelo menos um produto."); return; }
-  const total = Object.entries(pedidoAtual).reduce((s,[id,q])=>{
-    const p=catalogo.find(x=>x.id==id); return s + (p ? q*p.preco : 0);
-  },0);
-  const pedido = {
-    data:new Date().toLocaleString("pt-BR"),
-    cliente:document.getElementById("clienteNome").value || "Cliente sem nome",
-    telefone:document.getElementById("clienteTelefone").value,
-    endereco:document.getElementById("clienteEndereco").value,
-    obs:document.getElementById("obs").value,
-    status:document.getElementById("statusPagamento").value,
-    forma:document.getElementById("formaPagamento").value,
-    valor:document.getElementById("valorPedido").value || total,
-    itens:Object.entries(pedidoAtual).map(([id,q])=>({id:Number(id),qtd:q,nome:(catalogo.find(x=>x.id==id)||{}).nome,preco:(catalogo.find(x=>x.id==id)||{}).preco}))
-  };
-
-  if(editandoPedidoIndex !== null){
-    historico[editandoPedidoIndex] = pedido;
-    editandoPedidoIndex = null;
-    alert("Pedido atualizado com sucesso!");
-  } else {
-    historico.unshift(pedido);
-    alert("Pedido salvo e produção atualizada!");
-  }
-
-  pedidoAtual = {};
-  ["clienteNome","clienteTelefone","clienteEndereco","obs","valorPedido"].forEach(id=>document.getElementById(id).value="");
-  save(); render();
+async function entrar(){
+  loginMsg.textContent='';
+  const {error}=await sb.auth.signInWithPassword({email:loginEmail.value.trim(),password:loginSenha.value});
+  if(error){loginMsg.textContent='Erro: '+error.message;return;}
+  await iniciarApp();
 }
-function limparPedido(){ pedidoAtual={}; save(); render(); }
+async function sair(){await sb.auth.signOut();location.reload();}
+async function iniciarApp(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){loginView.classList.remove('hidden');appView.classList.add('hidden');return;}
+  loginView.classList.add('hidden');appView.classList.remove('hidden');
+  if(!dataEntrega.value)dataEntrega.value=new Date().toISOString().slice(0,10);
+  renderProdutos();renderResumo();renderCatalogo();
+  await Promise.all([carregarClientes(),carregarPedidos()]);
+  assinarRealtime();
+}
+async function carregarClientes(){
+  const {data,error}=await sb.from('clientes').select('*').order('nome');
+  if(error){console.error(error);syncStatus.textContent='Erro ao carregar clientes';return;}
+  clientes=data||[];
+  clienteSelect.innerHTML='<option value="">Selecionar cliente</option>'+clientes.map(c=>`<option value="${c.id}">${c.nome}${c.telefone?' • '+c.telefone:''}</option>`).join('');
+  renderClientes();
+}
+function preencherCliente(){
+  const c=clientes.find(x=>String(x.id)===String(clienteSelect.value)); if(!c)return;
+  clienteNome.value=c.nome||'';clienteTelefone.value=c.telefone||'';clienteEndereco.value=[c.endereco,c.bairro,c.cidade].filter(Boolean).join(', ');
+}
+async function salvarCliente(){
+  const p={nome:cadNome.value.trim(),telefone:cadTelefone.value.trim(),endereco:cadEndereco.value.trim(),bairro:cadBairro.value.trim(),cidade:cadCidade.value.trim(),observacao:cadObs.value.trim()};
+  if(!p.nome){alert('Digite o nome do cliente.');return;}
+  const {error}=await sb.from('clientes').insert(p); if(error){alert('Erro: '+error.message);return;}
+  ['cadNome','cadTelefone','cadEndereco','cadBairro','cadCidade','cadObs'].forEach(id=>document.getElementById(id).value='');
+  await carregarClientes(); alert('Cliente salvo na nuvem.');
+}
+async function excluirCliente(id){if(!confirm('Excluir este cliente?'))return;const {error}=await sb.from('clientes').delete().eq('id',id);if(error)alert(error.message);else await carregarClientes();}
+function renderClientes(){
+  clientesLista.innerHTML=clientes.length?clientes.map(c=>`<div class="prod"><div><b>${c.nome}</b><span>${c.telefone||''}${c.endereco?' • '+c.endereco:''}</span></div><button class="btn small red" onclick="excluirCliente('${c.id}')">Excluir</button></div>`).join(''):'<p class="muted">Nenhum cliente salvo.</p>';
+}
+async function salvarPedido(){
+  if(Object.keys(pedidoAtual).length===0){alert('Inclua pelo menos um produto.');return;}
+  const itens=Object.entries(pedidoAtual).map(([id,q])=>{const p=catalogo.find(x=>x.id==id);return {id:Number(id),qtd:Number(q),nome:p?.nome||'',unidade:p?.unidade||'',preco:Number(p?.preco||0)};});
+  const total=itens.reduce((s,x)=>s+x.qtd*x.preco,0);
+  const payload={cliente_id:clienteSelect.value||null,cliente:clienteNome.value.trim()||'Cliente sem nome',telefone:clienteTelefone.value.trim(),endereco:clienteEndereco.value.trim(),observacao:obs.value.trim(),status_pagamento:statusPagamento.value,forma_pagamento:formaPagamento.value,data_entrega:dataEntrega.value||null,valor:Number(valorPedido.value||total),itens};
+  let error;
+  if(editandoPedidoId){({error}=await sb.from('pedidos').update(payload).eq('id',editandoPedidoId));}
+  else{({error}=await sb.from('pedidos').insert(payload));}
+  if(error){alert('Erro ao salvar: '+error.message);return;}
+  const msg=editandoPedidoId?'Pedido atualizado com sucesso!':'Pedido salvo e produção atualizada!';
+  limparPedido();await carregarPedidos();alert(msg);
+}
+function limparPedido(){
+  pedidoAtual={};editandoPedidoId=null;localStorage.removeItem('pedidoAtualTaithi');
+  ['clienteNome','clienteTelefone','clienteEndereco','obs','valorPedido'].forEach(id=>document.getElementById(id).value='');
+  clienteSelect.value='';statusPagamento.value='Pago';formaPagamento.value='Dinheiro';
+  renderProdutos();renderResumo();
+}
+async function carregarPedidos(){
+  const {data,error}=await sb.from('pedidos').select('*').order('criado_em',{ascending:false});
+  if(error){alert('Erro ao carregar pedidos: '+error.message);syncStatus.textContent='Erro de sincronização';return;}
+  historico=data||[];syncStatus.textContent='Sincronizado';renderProducao();renderHistorico();
+}
 function renderProducao(){
-  recalcularProducao();
-  let html="<table><tr><th>Produto</th><th>Produzir</th></tr>";
-  catalogo.forEach(p=>{ if((producao[p.id]||0)>0) html+=`<tr><td>${p.nome}<br><span class="muted">${p.unidade}</span></td><td><b>${producao[p.id]}</b></td></tr>`; });
-  html+="</table>";
-  document.getElementById("producaoLista").innerHTML = html.includes("<td>") ? html : "<p class='muted'>Nenhum item para produzir ainda.</p>";
-  let saldoHtml="<table><tr><th>Produto</th><th>Saldo</th><th>Ajustar</th></tr>";
-  catalogo.forEach(p=>{ saldoHtml+=`<tr><td>${p.nome}</td><td><b>${saldo[p.id]||0}</b></td><td><button class="btn small secondary" onclick="ajustarSaldo(${p.id},1)">+1</button> <button class="btn small secondary" onclick="ajustarSaldo(${p.id},-1)">-1</button></td></tr>`; });
-  saldoHtml+="</table>";
-  document.getElementById("saldoLista").innerHTML = saldoHtml;
+  const producao={};historico.forEach(p=>(p.itens||[]).forEach(item=>{const key=item.id||item.nome;producao[key]=(producao[key]||0)+Number(item.qtd||0);}));
+  let html='<table><tr><th>Produto</th><th>Produzir</th></tr>';
+  Object.entries(producao).forEach(([key,q])=>{const p=catalogo.find(x=>String(x.id)===String(key));const nome=p?.nome||historico.flatMap(h=>h.itens||[]).find(i=>String(i.id||i.nome)===String(key))?.nome||key;const unidade=p?.unidade||'';html+=`<tr><td>${nome}<br><span class="muted">${unidade}</span></td><td><b>${q}</b></td></tr>`;});
+  html+='</table>';producaoLista.innerHTML=html.includes('<td>')?html:'<p class="muted">Nenhum item para produzir ainda.</p>';
+  let saldoHtml='<table><tr><th>Produto</th><th>Saldo</th><th>Ajustar</th></tr>';
+  catalogo.forEach(p=>{saldoHtml+=`<tr><td>${p.nome}</td><td><b>${saldo[p.id]||0}</b></td><td><button class="btn small secondary" onclick="ajustarSaldo(${p.id},1)">+1</button> <button class="btn small secondary" onclick="ajustarSaldo(${p.id},-1)">-1</button></td></tr>`;});
+  saldoHtml+='</table>';saldoLista.innerHTML=saldoHtml;
 }
-function finalizarProducao(){
-  alert("Para evitar erro na produção, esta versão mantém a produção sempre ligada aos pedidos salvos. Se quiser baixar produção do dia, primeiro imprima o relatório e depois me peça para criar a função 'marcar pedidos como produzidos/entregues'.");
-}
-function zerarProducao(){
-  alert("A produção não pode ser zerada manualmente, porque ela é calculada pelos pedidos salvos. Para tirar um item da produção, edite ou exclua o pedido correspondente.");
-}
-function ajustarSaldo(id,q){ saldo[id]=Math.max(0,(saldo[id]||0)+q); save(); render(); }
+function finalizarProducao(){alert("A produção permanece ligada aos pedidos salvos para evitar diferenças entre os celulares.");}
+function zerarProducao(){alert('Para retirar itens da produção, edite ou exclua os pedidos correspondentes.');}
+function ajustarSaldo(id,q){saldo[id]=Math.max(0,(saldo[id]||0)+q);localStorage.setItem('saldoTaithi',JSON.stringify(saldo));renderProducao();}
 function renderHistorico(){
-  if(historico.length===0){document.getElementById("historicoLista").innerHTML="<p class='muted'>Nenhum pedido salvo.</p>";return;}
-  document.getElementById("historicoLista").innerHTML = historico.map((p,i)=>{
-    const itens=p.itens.map(x=>`${x.qtd}x ${x.nome}`).join(", ");
-    return `<div class="card" style="margin:8px 0"><b>${p.cliente}</b> <span class="pill">${p.status}</span> <span class="pill">${p.forma}</span><br>
-      <span class="muted">${p.data} • ${p.telefone || ""}</span><br>
-      <b>R$ ${money(p.valor)}</b><br>${itens}<br>
-      ${p.endereco?`<span class="muted">Endereço: ${p.endereco}</span><br>`:""}
-      ${p.obs?`<span class="dangerText">Obs: ${p.obs}</span><br>`:""}
-      <button class="btn small yellow" onclick="reabrirPedido(${i})">Reabrir / editar</button>
-      <button class="btn small red" onclick="excluirPedido(${i})">Excluir</button></div>`;
-  }).join("");
+  if(historico.length===0){historicoLista.innerHTML='<p class="muted">Nenhum pedido salvo.</p>';return;}
+  historicoLista.innerHTML=historico.map(p=>{const itens=(p.itens||[]).map(x=>`${x.qtd}x ${x.nome}`).join(', ');const data=p.criado_em?new Date(p.criado_em).toLocaleString('pt-BR'):(p.data||'');return `<div class="card" style="margin:8px 0"><b>${p.cliente}</b> <span class="pill">${p.status_pagamento||p.status||''}</span> <span class="pill">${p.forma_pagamento||p.forma||''}</span><br><span class="muted">${data} • ${p.telefone||''}</span><br><b>R$ ${money(p.valor)}</b><br>${itens}<br>${p.endereco?`<span class="muted">Endereço: ${p.endereco}</span><br>`:''}${(p.observacao||p.obs)?`<span class="dangerText">Obs: ${p.observacao||p.obs}</span><br>`:''}<button class="btn small yellow" onclick="reabrirPedido('${p.id}')">Reabrir / editar</button> <button class="btn small red" onclick="excluirPedido('${p.id}')">Excluir</button></div>`;}).join('');
 }
-function reabrirPedido(i){
-  const p = historico[i];
-  if(!p){ return; }
-  pedidoAtual = {};
-  p.itens.forEach(item=>{
-    pedidoAtual[item.id] = item.qtd;
-  });
-  document.getElementById("clienteNome").value = p.cliente || "";
-  document.getElementById("clienteTelefone").value = p.telefone || "";
-  document.getElementById("clienteEndereco").value = p.endereco || "";
-  document.getElementById("obs").value = p.obs || "";
-  document.getElementById("statusPagamento").value = p.status || "Pendente";
-  document.getElementById("formaPagamento").value = p.forma || "Pix";
-  document.getElementById("valorPedido").value = p.valor || "";
-  editandoPedidoIndex = i;
-  document.querySelectorAll(".tab").forEach(t=>t.classList.add("hidden"));
-  document.getElementById("pedido").classList.remove("hidden");
-  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
-  document.querySelectorAll("nav button")[0].classList.add("active");
-  save(); render();
-  alert("Pedido reaberto. Inclua ou retire itens e depois clique em Salvar pedido.");
+function reabrirPedido(id){
+  const p=historico.find(x=>String(x.id)===String(id));if(!p)return;pedidoAtual={};(p.itens||[]).forEach(item=>pedidoAtual[item.id]=item.qtd);
+  clienteSelect.value=p.cliente_id||'';clienteNome.value=p.cliente||'';clienteTelefone.value=p.telefone||'';clienteEndereco.value=p.endereco||'';obs.value=p.observacao||p.obs||'';statusPagamento.value=p.status_pagamento||p.status||'Pendente';formaPagamento.value=p.forma_pagamento||p.forma||'Pix';dataEntrega.value=p.data_entrega||'';valorPedido.value=p.valor||'';editandoPedidoId=p.id;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden'));pedido.classList.remove('hidden');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));document.querySelectorAll('nav button')[0].classList.add('active');renderProdutos();renderResumo();alert('Pedido reaberto. Faça as alterações e clique em Salvar pedido.');
 }
-function excluirPedido(i){ if(confirm("Excluir este pedido do histórico?")){historico.splice(i,1); save(); render();} }
-function limparHistorico(){ if(confirm("Apagar todo o histórico?")){historico=[]; save(); render();} }
-function renderCatalogo(){
-  document.getElementById("catalogoLista").innerHTML = catalogo.map(p=>`<div class="prod"><div><b>${p.nome}</b><span>${p.unidade} • R$ ${money(p.preco)}</span></div><button class="btn small red" onclick="removerProduto(${p.id})">Remover</button></div>`).join("");
-}
-function adicionarProduto(){
-  const nome=document.getElementById("novoNome").value.trim(), unidade=document.getElementById("novoUnidade").value.trim()||"unidade", preco=Number(document.getElementById("novoPreco").value||0);
-  if(!nome){alert("Digite o nome do produto.");return;}
-  catalogo.push({id:Date.now(),categoria:"NOVOS PRODUTOS",nome,unidade,preco});
-  document.getElementById("novoNome").value="";document.getElementById("novoUnidade").value="";document.getElementById("novoPreco").value="";
-  save(); render();
-}
-function removerProduto(id){ if(confirm("Remover produto do catálogo?")){catalogo=catalogo.filter(p=>p.id!==id); save(); render();} }
-
-
-function imprimirRelatorioProducao(){
-  const itens = catalogo
-    .map(p=>({nome:p.nome, unidade:p.unidade, categoria:p.categoria||"PRODUTOS", qtd:producao[p.id]||0}))
-    .filter(x=>x.qtd>0);
-
-  if(itens.length===0){ alert("Não há itens na produção diária."); return; }
-
-  let catAtual = "";
-  let linhas = "";
-  itens.forEach(x=>{
-    if(x.categoria !== catAtual){
-      catAtual = x.categoria;
-      linhas += `<tr><th colspan="3" class="cat">${catAtual}</th></tr>`;
-    }
-    linhas += `<tr><td>${x.nome}<br><small>${x.unidade}</small></td><td class="qtd">${x.qtd}</td><td class="check">☐</td></tr>`;
-  });
-
-  const doc = `
-<!doctype html><html><head><meta charset="utf-8"><title>Relatório de Produção</title>
-<style>
-  body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:22px;color:#172117}
-  .box{max-width:760px;margin:auto}
-  h1{margin:0;color:#1f7a3a;font-size:25px}
-  h2{margin:4px 0 16px;font-size:18px;color:#333;border-bottom:3px solid #ffd84d;padding-bottom:10px}
-  table{width:100%;border-collapse:collapse;margin-top:10px}
-  th,td{border:1px solid #ddd;padding:10px;text-align:left;vertical-align:middle}
-  th{background:#eef4ec;color:#1f7a3a}
-  .cat{background:#1f7a3a;color:white;text-align:center;font-size:16px}
-  .qtd{font-size:22px;font-weight:bold;text-align:center;width:90px}
-  .check{text-align:center;width:70px;font-size:24px}
-  .print{margin:12px auto;display:block;padding:12px 18px;border:0;border-radius:10px;background:#1f7a3a;color:white;font-weight:bold}
-  .data{margin:8px 0 14px;color:#555}
-  @media print{.print{display:none} body{padding:0}}
-</style></head>
-<body>
-<button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button>
-<div class="box">
-  <h1>Taithi Hortifrutis</h1>
-  <h2>Relatório de produção diária</h2>
-  <div class="data">Gerado em: ${new Date().toLocaleString("pt-BR")}</div>
-  <table>
-    <tr><th>Produto</th><th>Quantidade</th><th>Feito</th></tr>
-    ${linhas}
-  </table>
-</div>
-</body></html>`;
-  const w = window.open("", "_blank");
-  w.document.write(doc);
-  w.document.close();
-}
-
-function dadosPedidoAtual(){
-  const itens = Object.entries(pedidoAtual).map(([id,q])=>{
-    const p=catalogo.find(x=>x.id==id);
-    return p ? {nome:p.nome, unidade:p.unidade, qtd:q, preco:p.preco, subtotal:q*p.preco} : null;
-  }).filter(Boolean);
-  const total = itens.reduce((s,x)=>s+x.subtotal,0);
-  return {
-    data:new Date().toLocaleString("pt-BR"),
-    cliente:document.getElementById("clienteNome").value || "Cliente",
-    telefone:document.getElementById("clienteTelefone").value || "",
-    endereco:document.getElementById("clienteEndereco").value || "",
-    obs:document.getElementById("obs").value || "",
-    status:document.getElementById("statusPagamento").value,
-    forma:document.getElementById("formaPagamento").value,
-    valor:document.getElementById("valorPedido").value || total,
-    itens,total
-  };
-}
-function abrirDocumentoPedido(tipo){
-  const p = dadosPedidoAtual();
-  if(p.itens.length===0){ alert("Inclua pelo menos um produto antes de gerar."); return; }
-  const mostrarEndereco = tipo === "comanda";
-  const titulo = tipo === "comanda" ? "COMANDA DE PRODUÇÃO / ENTREGA" : "RESUMO DO PEDIDO";
-  const linhas = p.itens.map(x=>`
-    <tr>
-      <td>${x.qtd}x</td>
-      <td>${x.nome}<br><small>${x.unidade}</small></td>
-      <td>R$ ${money(x.preco)}</td>
-      <td><b>R$ ${money(x.subtotal)}</b></td>
-    </tr>`).join("");
-  const doc = `
-<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title>
-<style>
-  body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:22px;color:#172117}
-  .box{max-width:760px;margin:auto;border:1px solid #ddd;border-radius:14px;padding:20px}
-  h1{margin:0;color:#1f7a3a;font-size:25px}
-  h2{margin:4px 0 16px;font-size:18px;color:#333}
-  .marca{border-bottom:3px solid #ffd84d;padding-bottom:10px;margin-bottom:14px}
-  .info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-  .info div{background:#f6f7f2;border-radius:10px;padding:9px}
-  table{width:100%;border-collapse:collapse;margin-top:10px}
-  th,td{border-bottom:1px solid #ddd;padding:9px;text-align:left;vertical-align:top}
-  th{background:#eef4ec;color:#1f7a3a}
-  .total{font-size:24px;text-align:right;margin-top:18px;background:#fff8d7;border:1px solid #edd36b;border-radius:12px;padding:14px}
-  .obs{margin-top:12px;padding:10px;border-radius:10px;background:#fff3f0;border:1px solid #ffd1c7}
-  .footer{margin-top:18px;text-align:center;color:#555;font-size:13px}
-  .print{margin:12px auto;display:block;padding:12px 18px;border:0;border-radius:10px;background:#1f7a3a;color:white;font-weight:bold}
-  @media print{.print{display:none}.box{border:0;padding:0} body{padding:0}}
-</style></head>
-<body>
-<button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button>
-<div class="box">
-  <div class="marca">
-    <h1>Taithi Hortifrutis</h1>
-    <h2>${titulo}</h2>
-    <div>Data: ${p.data}</div>
-  </div>
-  <div class="info">
-    <div><b>Cliente:</b><br>${p.cliente}</div>
-    <div><b>Telefone:</b><br>${p.telefone}</div>
-    ${mostrarEndereco ? `<div><b>Endereço:</b><br>${p.endereco}</div>` : ""}
-    <div><b>Pagamento:</b><br>${p.status} - ${p.forma}</div>
-  </div>
-  <table>
-    <tr><th>Qtd.</th><th>Produto</th><th>Valor un.</th><th>Subtotal</th></tr>
-    ${linhas}
-  </table>
-  ${p.obs ? `<div class="obs"><b>Observação:</b><br>${p.obs}</div>` : ""}
-  <div class="total">TOTAL: R$ ${money(p.valor)}</div>
-  <div class="footer">Produtos frescos e prontos para facilitar seu dia!</div>
-</div>
-</body></html>`;
-  const w = window.open("", "_blank");
-  w.document.write(doc);
-  w.document.close();
-}
-function gerarPDFCliente(){ abrirDocumentoPedido("cliente"); }
-function gerarComandaImpressao(){ abrirDocumentoPedido("comanda"); }
-
-function exportarCSV(){
-  let linhas=["Data;Cliente;Telefone;Endereco;Status;Forma;Valor;Itens;Observacao"];
-  historico.forEach(p=>linhas.push([p.data,p.cliente,p.telefone,p.endereco,p.status,p.forma,money(p.valor),p.itens.map(x=>`${x.qtd}x ${x.nome}`).join(" | "),p.obs].map(v=>`"${String(v||"").replaceAll('"','""')}"`).join(";")));
-  const blob=new Blob([linhas.join("\n")],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="relatorio-pedidos-taithi.csv"; a.click();
-}
-function render(){ renderProdutos(); renderResumo(); renderProducao(); renderHistorico(); renderCatalogo(); }
-render();
+async function excluirPedido(id){if(!confirm('Excluir este pedido do histórico?'))return;const {error}=await sb.from('pedidos').delete().eq('id',id);if(error)alert(error.message);else await carregarPedidos();}
+async function limparHistorico(){if(!confirm('Apagar todo o histórico da nuvem?'))return;const ids=historico.map(p=>p.id);if(!ids.length)return;const {error}=await sb.from('pedidos').delete().in('id',ids);if(error)alert(error.message);else await carregarPedidos();}
+function renderCatalogo(){catalogoLista.innerHTML=catalogo.map(p=>`<div class="prod"><div><b>${p.nome}</b><span>${p.unidade} • R$ ${money(p.preco)}</span></div><button class="btn small red" onclick="removerProduto(${p.id})">Remover</button></div>`).join('');}
+function adicionarProduto(){const nome=novoNome.value.trim(),unidade=novoUnidade.value.trim()||'unidade',preco=Number(novoPreco.value||0);if(!nome){alert('Digite o nome do produto.');return;}catalogo.push({id:Date.now(),categoria:'NOVOS PRODUTOS',nome,unidade,preco});novoNome.value='';novoUnidade.value='';novoPreco.value='';localStorage.setItem('catalogoTaithi',JSON.stringify(catalogo));render();}
+function removerProduto(id){if(confirm('Remover produto do catálogo?')){catalogo=catalogo.filter(p=>p.id!==id);localStorage.setItem('catalogoTaithi',JSON.stringify(catalogo));render();}}
+function dadosProducao(){const s={};historico.forEach(p=>(p.itens||[]).forEach(x=>{const k=x.nome||x.id;s[k]=(s[k]||0)+Number(x.qtd||0);}));return Object.entries(s).sort((a,b)=>a[0].localeCompare(b[0]));}
+function imprimirRelatorioProducao(){const itens=dadosProducao();if(!itens.length){alert('Não há itens na produção diária.');return;}const linhas=itens.map(([nome,qtd])=>`<tr><td>${nome}</td><td class="qtd">${qtd}</td><td class="check">☐</td></tr>`).join('');const doc=`<!doctype html><html><head><meta charset="utf-8"><title>Relatório de Produção</title><style>body{font-family:Arial;margin:0;padding:22px;color:#172117}.box{max-width:760px;margin:auto}h1{margin:0;color:#1f7a3a;font-size:25px}h2{margin:4px 0 16px;font-size:18px;border-bottom:3px solid #ffd84d;padding-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:10px}th{background:#eef4ec;color:#1f7a3a}.qtd{font-size:22px;font-weight:bold;text-align:center}.check{text-align:center;font-size:24px}.print{margin:12px auto;display:block;padding:12px 18px;border:0;border-radius:10px;background:#1f7a3a;color:white;font-weight:bold}@media print{.print{display:none}body{padding:0}}</style></head><body><button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button><div class="box"><h1>Taithi Hortifrutis</h1><h2>Relatório de produção diária</h2><div>Gerado em: ${new Date().toLocaleString('pt-BR')}</div><table><tr><th>Produto</th><th>Quantidade</th><th>Feito</th></tr>${linhas}</table></div></body></html>`;const w=window.open('','_blank');w.document.write(doc);w.document.close();}
+function dadosPedidoAtual(){const itens=Object.entries(pedidoAtual).map(([id,q])=>{const p=catalogo.find(x=>x.id==id);return p?{nome:p.nome,unidade:p.unidade,qtd:q,preco:p.preco,subtotal:q*p.preco}:null;}).filter(Boolean);const total=itens.reduce((s,x)=>s+x.subtotal,0);return{data:new Date().toLocaleString('pt-BR'),cliente:clienteNome.value||'Cliente',telefone:clienteTelefone.value||'',endereco:clienteEndereco.value||'',obs:obs.value||'',status:statusPagamento.value,forma:formaPagamento.value,valor:valorPedido.value||total,itens,total};}
+function abrirDocumentoPedido(tipo){const p=dadosPedidoAtual();if(!p.itens.length){alert('Inclua pelo menos um produto antes de gerar.');return;}const titulo=tipo==='comanda'?'COMANDA DE PRODUÇÃO / ENTREGA':'RESUMO DO PEDIDO';const linhas=p.itens.map(x=>`<tr><td>${x.qtd}x</td><td>${x.nome}<br><small>${x.unidade}</small></td><td>R$ ${money(x.preco)}</td><td><b>R$ ${money(x.subtotal)}</b></td></tr>`).join('');const doc=`<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title><style>body{font-family:Arial;margin:0;padding:22px;color:#172117}.box{max-width:760px;margin:auto;border:1px solid #ddd;border-radius:14px;padding:20px}h1{margin:0;color:#1f7a3a}.marca{border-bottom:3px solid #ffd84d;padding-bottom:10px}.info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.info div{background:#f6f7f2;border-radius:10px;padding:9px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ddd;padding:9px;text-align:left}.total{font-size:24px;text-align:right;margin-top:18px;background:#fff8d7;border:1px solid #edd36b;border-radius:12px;padding:14px}.obs{margin-top:12px;padding:10px;background:#fff3f0}.print{margin:12px auto;display:block;padding:12px 18px;border:0;border-radius:10px;background:#1f7a3a;color:white;font-weight:bold}@media print{.print{display:none}.box{border:0;padding:0}}</style></head><body><button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button><div class="box"><div class="marca"><h1>Taithi Hortifrutis</h1><h2>${titulo}</h2><div>Data: ${p.data}</div></div><div class="info"><div><b>Cliente:</b><br>${p.cliente}</div><div><b>Telefone:</b><br>${p.telefone}</div>${tipo==='comanda'?`<div><b>Endereço:</b><br>${p.endereco}</div>`:''}<div><b>Pagamento:</b><br>${p.status} - ${p.forma}</div></div><table><tr><th>Qtd.</th><th>Produto</th><th>Valor un.</th><th>Subtotal</th></tr>${linhas}</table>${p.obs?`<div class="obs"><b>Observação:</b><br>${p.obs}</div>`:''}<div class="total">TOTAL: R$ ${money(p.valor)}</div></div></body></html>`;const w=window.open('','_blank');w.document.write(doc);w.document.close();}
+function gerarPDFCliente(){abrirDocumentoPedido('cliente');}
+function gerarComandaImpressao(){abrirDocumentoPedido('comanda');}
+function exportarCSV(){let linhas=['Data;Cliente;Telefone;Endereco;Status;Forma;Valor;Itens;Observacao'];historico.forEach(p=>linhas.push([p.criado_em?new Date(p.criado_em).toLocaleString('pt-BR'):'',p.cliente,p.telefone,p.endereco,p.status_pagamento,p.forma_pagamento,money(p.valor),(p.itens||[]).map(x=>`${x.qtd}x ${x.nome}`).join(' | '),p.observacao].map(v=>`"${String(v||'').replaceAll('"','""')}"`).join(';')));const blob=new Blob([linhas.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='relatorio-pedidos-taithi.csv';a.click();}
+function assinarRealtime(){if(canalRealtime)sb.removeChannel(canalRealtime);canalRealtime=sb.channel('hortiflow-completo').on('postgres_changes',{event:'*',schema:'public',table:'pedidos'},()=>carregarPedidos()).on('postgres_changes',{event:'*',schema:'public',table:'clientes'},()=>carregarClientes()).subscribe(status=>{syncStatus.textContent=status==='SUBSCRIBED'?'Sincronizado':'Conectando...';});}
+function render(){renderProdutos();renderResumo();renderProducao();renderHistorico();renderCatalogo();renderClientes();}
+sb.auth.onAuthStateChange((_event,session)=>{if(session)iniciarApp();else{loginView.classList.remove('hidden');appView.classList.add('hidden');}});
+iniciarApp();
 </script>
 </body>
 </html>
