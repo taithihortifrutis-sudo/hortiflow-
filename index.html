@@ -174,12 +174,26 @@
     <section id="catalogo" class="tab hidden">
       <div class="card">
         <h2>Editar / incluir produto</h2>
+        <label>Tipo de produto</label>
+        <select id="novaCategoria">
+          <option>LEGUMES</option>
+          <option>MIX</option>
+          <option>FRUTAS</option>
+          <option>TEMPEROS</option>
+          <option>SALADAS</option>
+          <option>VERDURAS HIGIENIZADAS</option>
+          <option>DOCES</option>
+          <option>OUTROS</option>
+        </select>
         <label>Nome do produto</label><input id="novoNome" placeholder="Ex: Mix Arroz Primavera">
         <div class="row">
           <div><label>Unidade / peso</label><input id="novoUnidade" placeholder="Ex: 400g, pote 350ml"></div>
           <div><label>Preço R$</label><input id="novoPreco" type="number" step="0.01" placeholder="10.00"></div>
         </div>
-        <button class="btn yellow" style="margin-top:10px" onclick="adicionarProduto()">Adicionar ao catálogo</button>
+        <div class="row" style="margin-top:10px">
+          <button id="btnSalvarProduto" class="btn yellow" onclick="salvarProdutoCatalogo()">Adicionar ao catálogo</button>
+          <button id="btnCancelarProduto" class="btn secondary hidden" onclick="cancelarEdicaoProduto()">Cancelar edição</button>
+        </div>
       </div>
       <div class="card" style="margin-top:12px">
         <h2>Produtos cadastrados</h2>
@@ -248,6 +262,7 @@ let saldo = JSON.parse(localStorage.getItem('saldoTaithi') || '{}');
 let historico = [];
 let clientes = [];
 let editandoPedidoId = null;
+let editandoProdutoId = null;
 let canalRealtime = null;
 
 function money(n){ return Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -266,7 +281,7 @@ function addItem(id, qtd=1){
 }
 function renderProdutos(){
   const box=document.getElementById('produtos'); box.innerHTML=''; let catAtual='';
-  catalogo.forEach(p=>{
+  catalogoOrdenado().forEach(p=>{
     if((p.categoria||'')!==catAtual){catAtual=p.categoria||'PRODUTOS';box.innerHTML+=`<h3 style="grid-column:1/-1;background:#eef4ec;border-radius:12px;padding:10px;margin:8px 0 2px">${catAtual}</h3>`;}
     const q=pedidoAtual[p.id]||0;
     box.innerHTML+=`<div class="prod"><div><b>${p.nome}</b><span>${p.unidade} • R$ ${money(p.preco)}</span></div><div class="qty"><button class="minus" onclick="addItem(${p.id},-1)">−</button><strong>${q}</strong><button onclick="addItem(${p.id},1)">+</button></div></div>`;
@@ -345,7 +360,7 @@ function renderProducao(){
   Object.entries(producao).forEach(([key,q])=>{const p=catalogo.find(x=>String(x.id)===String(key));const nome=p?.nome||historico.flatMap(h=>h.itens||[]).find(i=>String(i.id||i.nome)===String(key))?.nome||key;const unidade=p?.unidade||'';html+=`<tr><td>${nome}<br><span class="muted">${unidade}</span></td><td><b>${q}</b></td></tr>`;});
   html+='</table>';producaoLista.innerHTML=html.includes('<td>')?html:'<p class="muted">Nenhum item para produzir ainda.</p>';
   let saldoHtml='<table><tr><th>Produto</th><th>Saldo</th><th>Ajustar</th></tr>';
-  catalogo.forEach(p=>{saldoHtml+=`<tr><td>${p.nome}</td><td><b>${saldo[p.id]||0}</b></td><td><button class="btn small secondary" onclick="ajustarSaldo(${p.id},1)">+1</button> <button class="btn small secondary" onclick="ajustarSaldo(${p.id},-1)">-1</button></td></tr>`;});
+  catalogoOrdenado().forEach(p=>{saldoHtml+=`<tr><td>${p.nome}</td><td><b>${saldo[p.id]||0}</b></td><td><button class="btn small secondary" onclick="ajustarSaldo(${p.id},1)">+1</button> <button class="btn small secondary" onclick="ajustarSaldo(${p.id},-1)">-1</button></td></tr>`;});
   saldoHtml+='</table>';saldoLista.innerHTML=saldoHtml;
 }
 function finalizarProducao(){alert("A produção permanece ligada aos pedidos salvos para evitar diferenças entre os celulares.");}
@@ -362,9 +377,53 @@ function reabrirPedido(id){
 }
 async function excluirPedido(id){if(!confirm('Excluir este pedido do histórico?'))return;const {error}=await sb.from('pedidos').delete().eq('id',id);if(error)alert(error.message);else await carregarPedidos();}
 async function limparHistorico(){if(!confirm('Apagar todo o histórico da nuvem?'))return;const ids=historico.map(p=>p.id);if(!ids.length)return;const {error}=await sb.from('pedidos').delete().in('id',ids);if(error)alert(error.message);else await carregarPedidos();}
-function renderCatalogo(){catalogoLista.innerHTML=catalogo.map(p=>`<div class="prod"><div><b>${p.nome}</b><span>${p.unidade} • R$ ${money(p.preco)}</span></div><button class="btn small red" onclick="removerProduto(${p.id})">Remover</button></div>`).join('');}
-function adicionarProduto(){const nome=novoNome.value.trim(),unidade=novoUnidade.value.trim()||'unidade',preco=Number(novoPreco.value||0);if(!nome){alert('Digite o nome do produto.');return;}catalogo.push({id:Date.now(),categoria:'NOVOS PRODUTOS',nome,unidade,preco});novoNome.value='';novoUnidade.value='';novoPreco.value='';localStorage.setItem('catalogoTaithi',JSON.stringify(catalogo));render();}
-function removerProduto(id){if(confirm('Remover produto do catálogo?')){catalogo=catalogo.filter(p=>p.id!==id);localStorage.setItem('catalogoTaithi',JSON.stringify(catalogo));render();}}
+const ordemCategorias=['LEGUMES','MIX','FRUTAS','TEMPEROS','SALADAS','VERDURAS HIGIENIZADAS','DOCES','OUTROS','NOVOS PRODUTOS'];
+function catalogoOrdenado(){
+  return [...catalogo].sort((a,b)=>{
+    const ca=ordemCategorias.indexOf(a.categoria), cb=ordemCategorias.indexOf(b.categoria);
+    const oa=ca===-1?999:ca, ob=cb===-1?999:cb;
+    return oa-ob || String(a.nome).localeCompare(String(b.nome),'pt-BR');
+  });
+}
+function salvarCatalogoLocal(){
+  localStorage.setItem('catalogoTaithi',JSON.stringify(catalogo));
+}
+function renderCatalogo(){
+  let categoriaAtual='';
+  catalogoLista.innerHTML=catalogoOrdenado().map(p=>{
+    let titulo='';
+    if(p.categoria!==categoriaAtual){categoriaAtual=p.categoria;titulo=`<h3 style="background:#eef4ec;border-radius:12px;padding:10px;margin:12px 0 6px">${categoriaAtual}</h3>`;}
+    return `${titulo}<div class="prod"><div><b>${p.nome}</b><span>${p.unidade} • R$ ${money(p.preco)}</span></div><div><button class="btn small yellow" onclick="editarProduto(${p.id})">Editar</button> <button class="btn small red" onclick="removerProduto(${p.id})">Remover</button></div></div>`;
+  }).join('');
+}
+function salvarProdutoCatalogo(){
+  const categoria=novaCategoria.value;
+  const nome=novoNome.value.trim();
+  const unidade=novoUnidade.value.trim()||'unidade';
+  const preco=Number(novoPreco.value||0);
+  if(!nome){alert('Digite o nome do produto.');return;}
+  if(preco<0){alert('Digite um preço válido.');return;}
+  if(editandoProdutoId!==null){
+    const produto=catalogo.find(p=>String(p.id)===String(editandoProdutoId));
+    if(!produto){alert('Produto não encontrado.');cancelarEdicaoProduto();return;}
+    produto.categoria=categoria;produto.nome=nome;produto.unidade=unidade;produto.preco=preco;
+    alert('Produto atualizado com sucesso!');
+  }else{
+    catalogo.push({id:Date.now(),categoria,nome,unidade,preco});
+    alert('Produto adicionado na categoria '+categoria+'.');
+  }
+  salvarCatalogoLocal();cancelarEdicaoProduto();render();
+}
+function editarProduto(id){
+  const p=catalogo.find(x=>String(x.id)===String(id));if(!p)return;
+  editandoProdutoId=p.id;novaCategoria.value=ordemCategorias.includes(p.categoria)?p.categoria:'OUTROS';novoNome.value=p.nome;novoUnidade.value=p.unidade;novoPreco.value=p.preco;
+  btnSalvarProduto.textContent='Salvar alterações';btnCancelarProduto.classList.remove('hidden');
+  document.getElementById('catalogo').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function cancelarEdicaoProduto(){
+  editandoProdutoId=null;novaCategoria.value='LEGUMES';novoNome.value='';novoUnidade.value='';novoPreco.value='';btnSalvarProduto.textContent='Adicionar ao catálogo';btnCancelarProduto.classList.add('hidden');
+}
+function removerProduto(id){if(confirm('Remover produto do catálogo?')){catalogo=catalogo.filter(p=>String(p.id)!==String(id));salvarCatalogoLocal();if(String(editandoProdutoId)===String(id))cancelarEdicaoProduto();render();}}
 function dadosProducao(){const s={};historico.forEach(p=>(p.itens||[]).forEach(x=>{const k=x.nome||x.id;s[k]=(s[k]||0)+Number(x.qtd||0);}));return Object.entries(s).sort((a,b)=>a[0].localeCompare(b[0]));}
 function imprimirRelatorioProducao(){const itens=dadosProducao();if(!itens.length){alert('Não há itens na produção diária.');return;}const linhas=itens.map(([nome,qtd])=>`<tr><td>${nome}</td><td class="qtd">${qtd}</td><td class="check">☐</td></tr>`).join('');const doc=`<!doctype html><html><head><meta charset="utf-8"><title>Relatório de Produção</title><style>body{font-family:Arial;margin:0;padding:22px;color:#172117}.box{max-width:760px;margin:auto}h1{margin:0;color:#1f7a3a;font-size:25px}h2{margin:4px 0 16px;font-size:18px;border-bottom:3px solid #ffd84d;padding-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:10px}th{background:#eef4ec;color:#1f7a3a}.qtd{font-size:22px;font-weight:bold;text-align:center}.check{text-align:center;font-size:24px}.print{margin:12px auto;display:block;padding:12px 18px;border:0;border-radius:10px;background:#1f7a3a;color:white;font-weight:bold}@media print{.print{display:none}body{padding:0}}</style></head><body><button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button><div class="box"><h1>Taithi Hortifrutis</h1><h2>Relatório de produção diária</h2><div>Gerado em: ${new Date().toLocaleString('pt-BR')}</div><table><tr><th>Produto</th><th>Quantidade</th><th>Feito</th></tr>${linhas}</table></div></body></html>`;const w=window.open('','_blank');w.document.write(doc);w.document.close();}
 function dadosPedidoAtual(){const itens=Object.entries(pedidoAtual).map(([id,q])=>{const p=catalogo.find(x=>x.id==id);return p?{nome:p.nome,unidade:p.unidade,qtd:q,preco:p.preco,subtotal:q*p.preco}:null;}).filter(Boolean);const total=itens.reduce((s,x)=>s+x.subtotal,0);return{data:new Date().toLocaleString('pt-BR'),cliente:clienteNome.value||'Cliente',telefone:clienteTelefone.value||'',endereco:clienteEndereco.value||'',obs:obs.value||'',status:statusPagamento.value,forma:formaPagamento.value,valor:valorPedido.value||total,itens,total};}
