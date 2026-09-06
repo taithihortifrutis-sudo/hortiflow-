@@ -176,14 +176,16 @@
         <h2>Editar / incluir produto</h2>
         <label>Tipo de produto</label>
         <select id="novaCategoria">
-          <option>LEGUMES</option>
-          <option>MIX</option>
-          <option>FRUTAS</option>
-          <option>TEMPEROS</option>
-          <option>SALADAS</option>
-          <option>VERDURAS HIGIENIZADAS</option>
-          <option>DOCES</option>
-          <option>OUTROS</option>
+          <option value="Legumes">LEGUMES</option>
+          <option value="Mix">MIX</option>
+          <option value="Frutas">FRUTAS</option>
+          <option value="Temperos">TEMPEROS</option>
+          <option value="Saladas">SALADAS</option>
+          <option value="Folhas Higienizadas">FOLHAS HIGIENIZADAS</option>
+          <option value="Ralados">RALADOS</option>
+          <option value="Doces">DOCES</option>
+          <option value="Preparo para Suco Detox">PREPARO PARA SUCO DETOX</option>
+          <option value="Outros">OUTROS</option>
         </select>
         <label>Nome do produto</label><input id="novoNome" placeholder="Ex: Mix Arroz Primavera">
         <div class="row">
@@ -229,34 +231,9 @@ const SUPABASE_URL = 'https://jfkgbhqagfwjhmjqloph.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_ipD8fk5YpsECUwT4pCuM3w_WaYIVrfT';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const catalogoInicial = [
-  ["LEGUMES","Cabotiá","400g",8],["LEGUMES","Abóbora picada","400g",6],["LEGUMES","Abóbora fatiada","400g",6],
-  ["LEGUMES","Abóbora ralada","400g",6],["LEGUMES","Cenoura fatiada","300g",6],["LEGUMES","Cenoura picada","300g",6],
-  ["LEGUMES","Cenoura julienne","300g",7],["LEGUMES","Batata doce","400g",6],["LEGUMES","Mandioca","700g",7],
-  ["LEGUMES","Beterraba","300g",6],["LEGUMES","Brócolis","200g",9],["LEGUMES","Jiló","200g",6],
-  ["LEGUMES","Quiabo","200g",7],["LEGUMES","Chuchu","400g",6],["LEGUMES","Vagem picada","300g",10],
-  ["LEGUMES","Milho verde picadinho","250g",7],
-  ["MIX","Mix Cenoura e Vagem","300g",9],["MIX","Mix Cabotiá","400g",9],["MIX","Mix Ensopado","400g",8],
-  ["MIX","Mix Sopa","400g",8],["MIX","Mix Salada","400g",8],["MIX","Mix Maionese","400g",10],
-  ["MIX","Mix Mandioquinha","400g",10],["MIX","Mix Low Carb","400g",12],["MIX","Mix Arroz Primavera","400g",12],
-  ["FRUTAS","Abacaxi em cubos","250ml",5],["FRUTAS","Melão em cubos","250ml",5],["FRUTAS","Melancia em cubos","350ml",5],
-  ["FRUTAS","Mix Frutas","melão, uva, kiwi e mamão 250ml",7],["FRUTAS","Kiwi em cubos","250ml",9],["FRUTAS","Mamão em cubos","250ml",5],
-  ["TEMPEROS","Alho picadinho","200g",10],["TEMPEROS","Cheiro verde","unidade",7],
-  ["SALADAS","Salada 1 - Mista, beterraba, repolho verde e cenoura","unidade",5],
-  ["SALADAS","Salada 2 - Mista, repolho roxo e cenoura","unidade",4],
-  ["SALADAS","Salada 3 - Mista, repolho verde e cenoura","unidade",4],
-  ["SALADAS","Salada 4 - Mista, alface, cenoura e beterraba","unidade",5],
-  ["SALADAS","Salada 5 - Mista, alface, pepino e cenoura","unidade",5],
-  ["SALADAS","Salada na bandeja","beterraba, cenoura, repolho verde, repolho roxo, pepino e tomate cereja",12],
-  ["VERDURAS HIGIENIZADAS","Alface crespa","200g",8],["VERDURAS HIGIENIZADAS","Alface americana","200g",10],
-  ["VERDURAS HIGIENIZADAS","Rúcula","200g",12],["VERDURAS HIGIENIZADAS","Couve picadinha","200g",8],
-  ["VERDURAS HIGIENIZADAS","Repolho verde picadinho - embalagem a vácuo","300g",8],
-  ["VERDURAS HIGIENIZADAS","Repolho roxo picadinho - embalagem a vácuo","300g",9],
-  ["DOCES","Doce de abóbora caseiro no potinho","300g",8],["DOCES","Doce de mamão verde em pedaços","350ml",10],
-  ["DOCES","Doce de mamão ralado com doce de leite","300g",12]
-].map((p,i)=>({id:i+1,categoria:p[0],nome:p[1],unidade:p[2],preco:p[3]}));
-
-let catalogo = JSON.parse(localStorage.getItem('catalogoTaithi') || 'null') || catalogoInicial;
+// O catálogo oficial agora vem da tabela public.produtos no Supabase.
+// Nada do catálogo é salvo apenas no celular.
+let catalogo = [];
 let pedidoAtual = JSON.parse(localStorage.getItem('pedidoAtualTaithi') || '{}');
 let saldo = JSON.parse(localStorage.getItem('saldoTaithi') || '{}');
 let historico = [];
@@ -305,9 +282,19 @@ async function iniciarApp(){
   if(!session){loginView.classList.remove('hidden');appView.classList.add('hidden');return;}
   loginView.classList.add('hidden');appView.classList.remove('hidden');
   if(!dataEntrega.value)dataEntrega.value=new Date().toISOString().slice(0,10);
+  await carregarProdutos();
   renderProdutos();renderResumo();renderCatalogo();
   await Promise.all([carregarClientes(),carregarPedidos()]);
   assinarRealtime();
+}
+async function carregarProdutos(){
+  const {data,error}=await sb.from('produtos').select('*').eq('ativo',true).order('categoria').order('ordem').order('nome');
+  if(error){console.error(error);syncStatus.textContent='Erro ao carregar produtos';alert('Erro ao carregar catálogo: '+error.message);return;}
+  catalogo=(data||[]).map(p=>({
+    id:p.id, categoria:p.categoria||'Outros', nome:p.nome||'',
+    unidade:p.embalagem||'', preco:Number(p.preco||0), ordem:Number(p.ordem||0)
+  }));
+  renderProdutos();renderResumo();renderCatalogo();
 }
 async function carregarClientes(){
   const {data,error}=await sb.from('clientes').select('*').order('nome');
@@ -355,16 +342,28 @@ async function carregarPedidos(){
   historico=data||[];syncStatus.textContent='Sincronizado';renderProducao();renderHistorico();
 }
 function renderProducao(){
-  const producao={};historico.forEach(p=>(p.itens||[]).forEach(item=>{const key=item.id||item.nome;producao[key]=(producao[key]||0)+Number(item.qtd||0);}));
-  let html='<table><tr><th>Produto</th><th>Produzir</th></tr>';
-  Object.entries(producao).forEach(([key,q])=>{const p=catalogo.find(x=>String(x.id)===String(key));const nome=p?.nome||historico.flatMap(h=>h.itens||[]).find(i=>String(i.id||i.nome)===String(key))?.nome||key;const unidade=p?.unidade||'';html+=`<tr><td>${nome}<br><span class="muted">${unidade}</span></td><td><b>${q}</b></td></tr>`;});
-  html+='</table>';producaoLista.innerHTML=html.includes('<td>')?html:'<p class="muted">Nenhum item para produzir ainda.</p>';
+  const producao={};
+  historico.forEach(p=>(p.itens||[]).forEach(item=>{
+    const key=String(item.id||item.nome);
+    if(!producao[key]) producao[key]={qtd:0,nome:item.nome||key,unidade:item.unidade||'',categoria:'Outros'};
+    producao[key].qtd+=Number(item.qtd||0);
+    const atual=catalogo.find(x=>String(x.id)===key);
+    if(atual){producao[key].nome=atual.nome;producao[key].unidade=atual.unidade;producao[key].categoria=atual.categoria;}
+  }));
+  const grupos={};
+  Object.values(producao).forEach(x=>{(grupos[x.categoria]??=[]).push(x);});
+  let html='';
+  ordemCategorias.concat(Object.keys(grupos).filter(c=>!ordemCategorias.includes(c))).forEach(cat=>{
+    const itens=grupos[cat];if(!itens?.length)return;
+    html+=`<h3 style="background:#eef4ec;border-radius:12px;padding:10px;margin:12px 0 6px">${cat}</h3><table><tr><th>Produto</th><th>Produzir</th></tr>`;
+    itens.sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).forEach(x=>{html+=`<tr><td>${x.nome}<br><span class="muted">${x.unidade}</span></td><td><b>${x.qtd}</b></td></tr>`;});
+    html+='</table>';
+  });
+  producaoLista.innerHTML=html||'<p class="muted">Nenhum item para produzir ainda.</p>';
   let saldoHtml='<table><tr><th>Produto</th><th>Saldo</th><th>Ajustar</th></tr>';
   catalogoOrdenado().forEach(p=>{saldoHtml+=`<tr><td>${p.nome}</td><td><b>${saldo[p.id]||0}</b></td><td><button class="btn small secondary" onclick="ajustarSaldo(${p.id},1)">+1</button> <button class="btn small secondary" onclick="ajustarSaldo(${p.id},-1)">-1</button></td></tr>`;});
   saldoHtml+='</table>';saldoLista.innerHTML=saldoHtml;
 }
-function finalizarProducao(){alert("A produção permanece ligada aos pedidos salvos para evitar diferenças entre os celulares.");}
-function zerarProducao(){alert('Para retirar itens da produção, edite ou exclua os pedidos correspondentes.');}
 function ajustarSaldo(id,q){saldo[id]=Math.max(0,(saldo[id]||0)+q);localStorage.setItem('saldoTaithi',JSON.stringify(saldo));renderProducao();}
 function renderHistorico(){
   if(historico.length===0){historicoLista.innerHTML='<p class="muted">Nenhum pedido salvo.</p>';return;}
@@ -377,16 +376,13 @@ function reabrirPedido(id){
 }
 async function excluirPedido(id){if(!confirm('Excluir este pedido do histórico?'))return;const {error}=await sb.from('pedidos').delete().eq('id',id);if(error)alert(error.message);else await carregarPedidos();}
 async function limparHistorico(){if(!confirm('Apagar todo o histórico da nuvem?'))return;const ids=historico.map(p=>p.id);if(!ids.length)return;const {error}=await sb.from('pedidos').delete().in('id',ids);if(error)alert(error.message);else await carregarPedidos();}
-const ordemCategorias=['LEGUMES','MIX','FRUTAS','TEMPEROS','SALADAS','VERDURAS HIGIENIZADAS','DOCES','OUTROS','NOVOS PRODUTOS'];
+const ordemCategorias=['Legumes','Mix','Frutas','Temperos','Saladas','Folhas Higienizadas','Ralados','Doces','Preparo para Suco Detox','Outros'];
 function catalogoOrdenado(){
   return [...catalogo].sort((a,b)=>{
     const ca=ordemCategorias.indexOf(a.categoria), cb=ordemCategorias.indexOf(b.categoria);
     const oa=ca===-1?999:ca, ob=cb===-1?999:cb;
-    return oa-ob || String(a.nome).localeCompare(String(b.nome),'pt-BR');
+    return oa-ob || Number(a.ordem||0)-Number(b.ordem||0) || String(a.nome).localeCompare(String(b.nome),'pt-BR');
   });
-}
-function salvarCatalogoLocal(){
-  localStorage.setItem('catalogoTaithi',JSON.stringify(catalogo));
 }
 function renderCatalogo(){
   let categoriaAtual='';
@@ -396,34 +392,40 @@ function renderCatalogo(){
     return `${titulo}<div class="prod"><div><b>${p.nome}</b><span>${p.unidade} • R$ ${money(p.preco)}</span></div><div><button class="btn small yellow" onclick="editarProduto(${p.id})">Editar</button> <button class="btn small red" onclick="removerProduto(${p.id})">Remover</button></div></div>`;
   }).join('');
 }
-function salvarProdutoCatalogo(){
+async function salvarProdutoCatalogo(){
   const categoria=novaCategoria.value;
   const nome=novoNome.value.trim();
-  const unidade=novoUnidade.value.trim()||'unidade';
+  const embalagem=novoUnidade.value.trim()||'unidade';
   const preco=Number(novoPreco.value||0);
   if(!nome){alert('Digite o nome do produto.');return;}
   if(preco<0){alert('Digite um preço válido.');return;}
+  let error;
   if(editandoProdutoId!==null){
-    const produto=catalogo.find(p=>String(p.id)===String(editandoProdutoId));
-    if(!produto){alert('Produto não encontrado.');cancelarEdicaoProduto();return;}
-    produto.categoria=categoria;produto.nome=nome;produto.unidade=unidade;produto.preco=preco;
-    alert('Produto atualizado com sucesso!');
+    ({error}=await sb.from('produtos').update({categoria,nome,embalagem,preco}).eq('id',editandoProdutoId));
   }else{
-    catalogo.push({id:Date.now(),categoria,nome,unidade,preco});
-    alert('Produto adicionado na categoria '+categoria+'.');
+    const maiorOrdem=Math.max(0,...catalogo.filter(p=>p.categoria===categoria).map(p=>Number(p.ordem||0)));
+    ({error}=await sb.from('produtos').insert({categoria,nome,embalagem,preco,ativo:true,ordem:maiorOrdem+1}));
   }
-  salvarCatalogoLocal();cancelarEdicaoProduto();render();
+  if(error){alert('Erro ao salvar produto: '+error.message);return;}
+  const msg=editandoProdutoId!==null?'Produto atualizado na nuvem!':'Produto adicionado na nuvem!';
+  cancelarEdicaoProduto();await carregarProdutos();alert(msg);
 }
 function editarProduto(id){
   const p=catalogo.find(x=>String(x.id)===String(id));if(!p)return;
-  editandoProdutoId=p.id;novaCategoria.value=ordemCategorias.includes(p.categoria)?p.categoria:'OUTROS';novoNome.value=p.nome;novoUnidade.value=p.unidade;novoPreco.value=p.preco;
+  editandoProdutoId=p.id;novaCategoria.value=ordemCategorias.includes(p.categoria)?p.categoria:'Outros';novoNome.value=p.nome;novoUnidade.value=p.unidade;novoPreco.value=p.preco;
   btnSalvarProduto.textContent='Salvar alterações';btnCancelarProduto.classList.remove('hidden');
   document.getElementById('catalogo').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function cancelarEdicaoProduto(){
-  editandoProdutoId=null;novaCategoria.value='LEGUMES';novoNome.value='';novoUnidade.value='';novoPreco.value='';btnSalvarProduto.textContent='Adicionar ao catálogo';btnCancelarProduto.classList.add('hidden');
+  editandoProdutoId=null;novaCategoria.value='Legumes';novoNome.value='';novoUnidade.value='';novoPreco.value='';btnSalvarProduto.textContent='Adicionar ao catálogo';btnCancelarProduto.classList.add('hidden');
 }
-function removerProduto(id){if(confirm('Remover produto do catálogo?')){catalogo=catalogo.filter(p=>String(p.id)!==String(id));salvarCatalogoLocal();if(String(editandoProdutoId)===String(id))cancelarEdicaoProduto();render();}}
+async function removerProduto(id){
+  if(!confirm('Remover este produto do catálogo? Pedidos já salvos manterão o nome e o preço registrados.'))return;
+  const {error}=await sb.from('produtos').update({ativo:false}).eq('id',id);
+  if(error){alert('Erro ao remover produto: '+error.message);return;}
+  if(String(editandoProdutoId)===String(id))cancelarEdicaoProduto();
+  await carregarProdutos();
+}
 function dadosProducao(){const s={};historico.forEach(p=>(p.itens||[]).forEach(x=>{const k=x.nome||x.id;s[k]=(s[k]||0)+Number(x.qtd||0);}));return Object.entries(s).sort((a,b)=>a[0].localeCompare(b[0]));}
 function imprimirRelatorioProducao(){const itens=dadosProducao();if(!itens.length){alert('Não há itens na produção diária.');return;}const linhas=itens.map(([nome,qtd])=>`<tr><td>${nome}</td><td class="qtd">${qtd}</td><td class="check">☐</td></tr>`).join('');const doc=`<!doctype html><html><head><meta charset="utf-8"><title>Relatório de Produção</title><style>body{font-family:Arial;margin:0;padding:22px;color:#172117}.box{max-width:760px;margin:auto}h1{margin:0;color:#1f7a3a;font-size:25px}h2{margin:4px 0 16px;font-size:18px;border-bottom:3px solid #ffd84d;padding-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:10px}th{background:#eef4ec;color:#1f7a3a}.qtd{font-size:22px;font-weight:bold;text-align:center}.check{text-align:center;font-size:24px}.print{margin:12px auto;display:block;padding:12px 18px;border:0;border-radius:10px;background:#1f7a3a;color:white;font-weight:bold}@media print{.print{display:none}body{padding:0}}</style></head><body><button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button><div class="box"><h1>Taithi Hortifrutis</h1><h2>Relatório de produção diária</h2><div>Gerado em: ${new Date().toLocaleString('pt-BR')}</div><table><tr><th>Produto</th><th>Quantidade</th><th>Feito</th></tr>${linhas}</table></div></body></html>`;const w=window.open('','_blank');w.document.write(doc);w.document.close();}
 function dadosPedidoAtual(){const itens=Object.entries(pedidoAtual).map(([id,q])=>{const p=catalogo.find(x=>x.id==id);return p?{nome:p.nome,unidade:p.unidade,qtd:q,preco:p.preco,subtotal:q*p.preco}:null;}).filter(Boolean);const total=itens.reduce((s,x)=>s+x.subtotal,0);return{data:new Date().toLocaleString('pt-BR'),cliente:clienteNome.value||'Cliente',telefone:clienteTelefone.value||'',endereco:clienteEndereco.value||'',obs:obs.value||'',status:statusPagamento.value,forma:formaPagamento.value,valor:valorPedido.value||total,itens,total};}
@@ -431,7 +433,7 @@ function abrirDocumentoPedido(tipo){const p=dadosPedidoAtual();if(!p.itens.lengt
 function gerarPDFCliente(){abrirDocumentoPedido('cliente');}
 function gerarComandaImpressao(){abrirDocumentoPedido('comanda');}
 function exportarCSV(){let linhas=['Data;Cliente;Telefone;Endereco;Status;Forma;Valor;Itens;Observacao'];historico.forEach(p=>linhas.push([p.criado_em?new Date(p.criado_em).toLocaleString('pt-BR'):'',p.cliente,p.telefone,p.endereco,p.status_pagamento,p.forma_pagamento,money(p.valor),(p.itens||[]).map(x=>`${x.qtd}x ${x.nome}`).join(' | '),p.observacao].map(v=>`"${String(v||'').replaceAll('"','""')}"`).join(';')));const blob=new Blob([linhas.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='relatorio-pedidos-taithi.csv';a.click();}
-function assinarRealtime(){if(canalRealtime)sb.removeChannel(canalRealtime);canalRealtime=sb.channel('hortiflow-completo').on('postgres_changes',{event:'*',schema:'public',table:'pedidos'},()=>carregarPedidos()).on('postgres_changes',{event:'*',schema:'public',table:'clientes'},()=>carregarClientes()).subscribe(status=>{syncStatus.textContent=status==='SUBSCRIBED'?'Sincronizado':'Conectando...';});}
+function assinarRealtime(){if(canalRealtime)sb.removeChannel(canalRealtime);canalRealtime=sb.channel('hortiflow-completo').on('postgres_changes',{event:'*',schema:'public',table:'pedidos'},()=>carregarPedidos()).on('postgres_changes',{event:'*',schema:'public',table:'clientes'},()=>carregarClientes()).on('postgres_changes',{event:'*',schema:'public',table:'produtos'},()=>carregarProdutos()).subscribe(status=>{syncStatus.textContent=status==='SUBSCRIBED'?'Sincronizado':'Conectando...';});}
 function render(){renderProdutos();renderResumo();renderProducao();renderHistorico();renderCatalogo();renderClientes();}
 sb.auth.onAuthStateChange((_event,session)=>{if(session)iniciarApp();else{loginView.classList.remove('hidden');appView.classList.add('hidden');}});
 iniciarApp();
